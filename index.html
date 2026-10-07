@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F5F6F2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D100D" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="תזונה">
+<meta name="description" content="מעקב תזונה אישי: כמה לאכול, כמה חלבון, ורעיונות לארוחות פשוטות.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<title>התזונה שלי</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #F5F6F2; --surface: #FFFFFF; --surface2: #EEF1EA; --line: #E0E4DC;
+    --text: #1A1F19; --muted: #5D665B; --dim: #7E877B;
+    --accent: #25784A; --accent-ink: #FFFFFF; --accent-soft: rgba(37,120,74,.11);
+    --kcal: #D27A1F;
+    --danger: #B42318;
+    --scrim: rgba(10,14,10,.45);
+    --shadow: 0 8px 28px rgba(20,30,20,.12);
+    --sans: 'Rubik', 'Heebo', -apple-system, 'Segoe UI', 'Arial Hebrew', Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #0D100D; --surface: #161A16; --surface2: #20251F; --line: #2C332B;
+      --text: #EDF1EB; --muted: #A0AA9D; --dim: #78826F;
+      --accent: #5BBE87; --accent-ink: #0B110D; --accent-soft: rgba(91,190,135,.15);
+      --kcal: #EFA25A;
+      --danger: #F28B82;
+      --scrim: rgba(0,0,0,.6);
+      --shadow: 0 10px 30px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #0D100D; --surface: #161A16; --surface2: #20251F; --line: #2C332B;
+    --text: #EDF1EB; --muted: #A0AA9D; --dim: #78826F;
+    --accent: #5BBE87; --accent-ink: #0B110D; --accent-soft: rgba(91,190,135,.15);
+    --kcal: #EFA25A;
+    --danger: #F28B82;
+    --scrim: rgba(0,0,0,.6);
+    --shadow: 0 10px 30px rgba(0,0,0,.6);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  /* keep the app still on phones: no zoom, no sideways drift, no bounce; lists still scroll up and down */
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none; background: var(--bg); }
+  body { margin: 0; overflow-x: clip; overscroll-behavior: none; background: var(--bg); color: var(--text); font: 400 16px/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+  body.locked { overflow: hidden; }
+  h1, h2, h3, p { margin: 0; }
+  ul, ol { margin: 0; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  svg { display: block; }
+
+  .app { max-width: 560px; margin: 0 auto; padding: calc(16px + env(safe-area-inset-top)) 16px calc(100px + env(safe-area-inset-bottom)); }
+  .app > * + * { margin-top: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 16px; }
+  h1 { font-size: 1.65rem; font-weight: 700; line-height: 1.2; }
+  h2 { font-size: 1.05rem; font-weight: 600; }
+  .muted { color: var(--muted); }
+  .small { font-size: .88rem; }
+  .mt { margin-top: 12px; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  .pagehead p { margin-top: 4px; }
+
+  /* today: day switcher */
+  .dayhead { display: flex; align-items: center; gap: 8px; }
+  .daytitle { flex: 1; text-align: center; min-width: 0; }
+  .daytitle .muted { font-size: .92rem; }
+  .linkbtn { border: 0; background: none; padding: 4px 6px; color: var(--accent); font-weight: 600; font-size: .9rem; }
+  .iconbtn { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); display: grid; place-items: center; color: var(--text); padding: 0; }
+  .iconbtn:disabled { opacity: .3; }
+  .iconbtn svg { width: 20px; height: 20px; }
+  .iconbtn.sm { width: 36px; height: 36px; border-color: transparent; background: none; color: var(--dim); }
+  .iconbtn.sm svg { width: 16px; height: 16px; }
+
+  /* meters */
+  .meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .meter-label { font-weight: 600; }
+  .meter-num { color: var(--muted); font-size: .95rem; }
+  .meter-num b { color: var(--text); font-size: 1.55rem; font-weight: 700; margin-inline-end: 2px; }
+  .bar { height: 10px; border-radius: 99px; background: var(--surface2); margin: 10px 0 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .35s ease; }
+  .kcal .bar i { background: var(--kcal); }
+  .meter-note { font-size: .92rem; color: var(--muted); }
+  .meter-note.done { color: var(--accent); font-weight: 600; }
+
+  /* buttons */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 18px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); font-weight: 600; text-align: center; }
+  .btn svg { width: 20px; height: 20px; }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+  .btn.block { display: flex; width: 100%; }
+  .btn.ghost { background: transparent; border-color: transparent; }
+  .btn.danger { color: var(--danger); }
+  .btnrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+
+  /* rows */
+  .row { display: flex; width: 100%; align-items: center; gap: 12px; padding: 12px 0; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: start; }
+  .rows > .row:last-child, .rows > .pickrow:last-child, .rows > .row:has(+ .listhead), .rows > .pickrow:has(+ .listhead) { border-bottom: 0; }
+  .row-main { flex: 1; min-width: 0; }
+  .row-name { display: block; font-weight: 500; overflow-wrap: anywhere; }
+  .row-sub { display: block; font-size: .85rem; color: var(--muted); }
+  .row-nums { flex: none; text-align: end; font-size: .85rem; color: var(--muted); white-space: nowrap; line-height: 1.35; }
+  .row-nums b { color: var(--accent); font-size: 1rem; font-weight: 600; }
+  .pickrow { display: flex; align-items: center; border-bottom: 1px solid var(--line); }
+  .pickrow .row { border-bottom: 0; }
+  .listhead { font-size: .8rem; font-weight: 600; color: var(--dim); margin: 14px 0 0; }
+  .empty { color: var(--muted); padding: 14px 0 4px; }
+  .list h2 { margin-bottom: 2px; }
+
+  .sug-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .sug .small { margin-top: 2px; }
+
+  /* ideas */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { min-height: 38px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); font-size: .92rem; font-weight: 500; }
+  .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: transparent; }
+  .meal { display: block; width: 100%; text-align: start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+  .meal + .meal { margin-top: 10px; }
+  .meal-top { display: flex; align-items: flex-start; gap: 8px; }
+  .meal-name { flex: 1; font-weight: 600; font-size: 1.02rem; }
+  .tag { flex: none; font-size: .75rem; padding: 2px 8px; border-radius: 99px; background: var(--surface2); color: var(--muted); white-space: nowrap; }
+  .meal-nums { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin-top: 6px; font-size: .9rem; color: var(--muted); }
+  .meal-nums .p { color: var(--accent); }
+  .meal-nums .p b { font-weight: 700; }
+  .badge { display: inline-block; margin-top: 8px; font-size: .78rem; font-weight: 600; color: var(--accent); background: var(--accent-soft); padding: 2px 9px; border-radius: 99px; }
+  .sub { font-size: 1rem; font-weight: 600; margin: 18px 0 6px; }
+  .ing, .steps { padding-inline-start: 22px; }
+  .ing li + li, .steps li + li { margin-top: 4px; }
+  .steps li::marker { color: var(--accent); font-weight: 700; }
+
+  /* me */
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stats > div { background: var(--surface2); border-radius: 14px; padding: 12px; text-align: center; }
+  .stats b { display: block; font-size: 1.7rem; font-weight: 700; line-height: 1.2; }
+  .stats span { font-size: .85rem; color: var(--muted); }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .facts span { font-size: .8rem; padding: 3px 10px; border-radius: 99px; background: var(--surface2); color: var(--muted); }
+  .wform { display: flex; gap: 8px; margin-top: 10px; }
+  .wform .input { margin: 0; flex: 1; }
+  .wlist { list-style: none; padding: 0; margin-top: 10px; }
+  .wlist li { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: .92rem; }
+  .wlist li:last-child { border-bottom: 0; }
+  .tips { padding-inline-start: 20px; margin-top: 8px; }
+  .tips li + li { margin-top: 6px; }
+  .tips li::marker { color: var(--accent); }
+  .disclaimer { font-size: .8rem; color: var(--dim); text-align: center; padding: 4px 8px; }
+
+  /* setup */
+  .hero { text-align: center; padding: 18px 8px 6px; }
+  .hero svg { width: 72px; height: 72px; margin: 0 auto 12px; border-radius: 18px; }
+  .hero p { margin-top: 6px; }
+
+  /* forms */
+  .field { display: block; font-size: .88rem; color: var(--muted); }
+  .input { display: block; width: 100%; margin-top: 4px; min-height: 48px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface2); font-size: 16px; color: var(--text); }
+  .input:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: transparent; }
+  .search { margin: 12px 0 2px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 16px; }
+  fieldset { border: 0; padding: 0; margin: 18px 0 0; min-width: 0; }
+  fieldset:first-child { margin-top: 0; }
+  legend { font-weight: 600; margin-bottom: 8px; padding: 0; }
+  .opt { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); cursor: pointer; }
+  .opt + .opt { margin-top: 8px; }
+  .opt input { margin: 3px 0 0; accent-color: var(--accent); width: 18px; height: 18px; flex: none; }
+  .opt:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .opt b { display: block; font-weight: 600; }
+  .opt span span { display: block; font-size: .86rem; color: var(--muted); }
+  .sexrow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sexrow .opt { margin: 0; align-items: center; justify-content: center; }
+  .sexrow .opt input { margin: 0; }
+  .check { display: flex; gap: 10px; align-items: center; margin: 14px 0; font-size: .95rem; }
+  .check input { width: 20px; height: 20px; accent-color: var(--accent); margin: 0; }
+  .err { color: var(--danger); font-weight: 500; margin: 14px 0 0; }
+  .pform .btn, .mform .btn { margin-top: 16px; }
+  .mform .muted { margin-top: 12px; }
+
+  /* bottom bar */
+  .nav { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; background: var(--surface); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
+  .nav-in { display: flex; max-width: 560px; margin: 0 auto; }
+  .nav button { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 58px; padding: 8px 0 6px; border: 0; background: none; color: var(--dim); font-size: .78rem; font-weight: 500; }
+  .nav button svg { width: 24px; height: 24px; }
+  .nav button[aria-current="page"] { color: var(--accent); font-weight: 600; }
+
+  /* sheets */
+  .overlay { position: fixed; inset: 0; z-index: 60; background: var(--scrim); display: flex; align-items: flex-end; justify-content: center; }
+  .sheet { width: 100%; max-width: 560px; max-height: 92vh; max-height: 92dvh; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; background: var(--surface); border-radius: 22px 22px 0 0; padding: 16px 16px calc(22px + env(safe-area-inset-bottom)); box-shadow: var(--shadow); animation: up .22s ease; }
+  @keyframes up { from { transform: translateY(28px); opacity: .5; } }
+  .sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sheet-head h2 { flex: 1; font-size: 1.2rem; min-width: 0; overflow-wrap: anywhere; }
+  .seg { display: flex; gap: 4px; padding: 4px; background: var(--surface2); border-radius: 12px; }
+  .seg button { flex: 1; min-height: 40px; border: 0; border-radius: 9px; background: none; font-weight: 500; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+  .stepper { display: flex; align-items: center; justify-content: center; gap: 22px; margin: 20px 0 0; }
+  .stepper button { width: 54px; height: 54px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface2); font-size: 1.7rem; line-height: 1; padding: 0; }
+  .stepper button:disabled { opacity: .35; }
+  .stepper output { min-width: 70px; text-align: center; font-size: 2.1rem; font-weight: 700; }
+  .qty-cap { text-align: center; font-size: .85rem; margin-top: 2px; }
+  .qty-total { display: flex; justify-content: center; gap: 18px; margin: 14px 0 18px; color: var(--muted); }
+  .qty-total b { color: var(--text); font-size: 1.15rem; }
+  .qty-total .p b { color: var(--accent); }
+
+  .toast { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 100; background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 99px; font-size: .92rem; display: flex; gap: 14px; align-items: center; box-shadow: var(--shadow); width: max-content; max-width: calc(100vw - 32px); }
+  .toast button { border: 0; background: none; color: inherit; font-weight: 700; text-decoration: underline; padding: 4px; }
+
+  /* iPhone: once the keyboard closes the visible screen can stay shifted from where fixed parts are drawn;
+     --vv-y is that shift, measured by the script below, and it is 0 whenever the phone behaves */
+  .nav { bottom: calc(0px - var(--vv-y, 0px)); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sheet { animation: none; }
+    .bar i { transition: none; }
+  }
+  @media (max-width: 360px) {
+    .grid3 { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+<main class="app" id="app"></main>
+
+<nav class="nav" id="nav" aria-label="ניווט" hidden>
+  <div class="nav-in">
+    <button type="button" data-act="tab" data-tab="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>היום</span></button>
+    <button type="button" data-act="tab" data-tab="ideas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 11.5h17a8.5 8.5 0 0 1-17 0Z"/><path d="M9 8c0-1.6 1.2-2 1.2-3.6M13.6 8c0-1.6 1.2-2 1.2-3.6"/></svg><span>רעיונות</span></button>
+    <button type="button" data-act="tab" data-tab="me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5c1.2-3.8 4.2-5.5 7.5-5.5s6.3 1.7 7.5 5.5"/></svg><span>אני</span></button>
+  </div>
+</nav>
+
+<div class="overlay" id="overlay" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- data ----------
+  // Meal ideas. k = calories, p = protein (grams), m = minutes to make; numbers are estimates for one portion.
+  var MEALS = [
+    { n: 'חביתה עם לחם וגבינה', c: 'boker', k: 420, p: 25, m: 10, kind: 'חלבי',
+      ing: ['2 ביצים', '2 פרוסות לחם מלא', 'פרוסת גבינה צהובה', 'עגבנייה ומלפפון', 'מעט שמן או ספריי שמן'],
+      steps: ['לטרוף את הביצים עם קורט מלח.', 'לחמם מחבת עם מעט שמן ולטגן את החביתה כ-2 דקות מכל צד.', 'להגיש עם הלחם, הגבינה וירקות חתוכים.'] },
+    { n: 'דייסת שיבולת שועל עם בננה', c: 'boker', k: 340, p: 16, m: 5, kind: 'חלבי',
+      ing: ['חצי כוס שיבולת שועל (40 גרם)', 'כוס חלב 1%', 'חצי בננה', 'כפית חמאת בוטנים', 'קינמון (לא חובה)'],
+      steps: ['לשים בקערה את שיבולת השועל והחלב.', 'לחמם במיקרוגל 2 דקות ולערבב.', 'לשים למעלה בננה פרוסה, חמאת בוטנים וקינמון.'] },
+    { n: 'יוגורט חלבון עם פרי וגרנולה', c: 'boker', k: 260, p: 22, m: 2, kind: 'חלבי',
+      ing: ['גביע יוגורט חלבון (200 גרם)', '2 כפות גרנולה', 'פרי חתוך: תפוח, בננה או תותים'],
+      steps: ['לשפוך את היוגורט לקערה.', 'להוסיף מלמעלה פרי וגרנולה.'] },
+    { n: "קוטג' עם לחם וירקות", c: 'boker', k: 300, p: 22, m: 5, kind: 'חלבי',
+      ing: ["חצי גביע קוטג'", '2 פרוסות לחם מלא', 'ירקות: מלפפון, עגבנייה, פלפל'],
+      steps: ['לחתוך את הירקות.', "למרוח את הקוטג' על הלחם, או לאכול אותו בצד."] },
+    { n: 'טוסט גבינה', c: 'boker', k: 280, p: 20, m: 7, kind: 'חלבי',
+      ing: ['2 פרוסות לחם', '2 פרוסות גבינה צהובה (עדיף 9%)', 'עגבנייה (לא חובה)', 'קטשופ או רוטב פיצה (לא חובה)'],
+      steps: ['לשים את הגבינה (והעגבנייה) בין שתי פרוסות הלחם.', 'לחמם בטוסטר 3–4 דקות, עד שהגבינה נמסה.'] },
+    { n: 'שקשוקה פשוטה', c: 'boker', k: 400, p: 24, m: 15, kind: 'פרווה',
+      ing: ['3 ביצים', 'חצי קופסת עגבניות מרוסקות', 'חצי בצל קצוץ', 'כפית שמן', 'מלח, פפריקה וכמון', 'פרוסת לחם בצד'],
+      steps: ['לטגן את הבצל בשמן 3 דקות.', 'להוסיף את העגבניות והתבלינים ולבשל 5 דקות.', 'לשבור את הביצים לתוך הרוטב, לכסות ולבשל עוד 5–6 דקות.'] },
+    { n: 'טורטייה עם ביצים וגבינה', c: 'boker', k: 320, p: 22, m: 10, kind: 'חלבי',
+      ing: ['טורטייה', '2 ביצים', 'פרוסת גבינה צהובה (עדיף 9%)', 'ירקות חתוכים (לא חובה)'],
+      steps: ['לטרוף את הביצים ולערבב אותן במחבת עד שהן מוכנות.', 'לשים בטורטייה עם הגבינה והירקות, ולגלגל.'] },
+
+    { n: 'חזה עוף במחבת עם אורז וסלט', c: 'main', k: 440, p: 39, m: 20, kind: 'בשרי',
+      ing: ['150 גרם חזה עוף', 'כוס אורז מבושל', 'כפית שמן', 'מלח, פפריקה ושום', 'סלט ירקות'],
+      steps: ['לחתוך את העוף לרצועות ולתבל.', 'לצלות במחבת חמה עם כפית שמן 6–8 דקות, עד שאין ורוד בפנים.', 'להגיש עם האורז והסלט.'] },
+    { n: 'פסטה עם טונה ורוטב עגבניות', c: 'main', k: 460, p: 38, m: 15, kind: 'פרווה',
+      ing: ['80 גרם פסטה (לפני בישול)', 'קופסת טונה במים', 'חצי כוס רוטב עגבניות'],
+      steps: ['לבשל את הפסטה לפי ההוראות על השקית ולסנן.', 'לחמם את הרוטב, להוסיף את הטונה המסוננת ולערבב עם הפסטה.'] },
+    { n: 'טונה בפיתה', c: 'main', k: 400, p: 34, m: 5, kind: 'פרווה',
+      ing: ['פיתה', 'קופסת טונה במים', 'כף מיונז לייט', 'מלפפון חמוץ ועגבנייה'],
+      steps: ['לסנן את הטונה ולערבב עם המיונז והירקות החתוכים.', 'למלא את הפיתה.'] },
+    { n: 'חזה עוף בפיתה עם טחינה', c: 'main', k: 460, p: 38, m: 15, kind: 'בשרי',
+      ing: ['פיתה', '120 גרם חזה עוף', 'כף טחינה', 'סלט ירקות קצוץ'],
+      steps: ['לחתוך את העוף לרצועות, לתבל ולצלות במחבת 6–8 דקות.', 'למלא את הפיתה בעוף, בסלט ובטחינה.'] },
+    { n: 'שניצל בתנור עם תפוח אדמה וסלט', c: 'main', k: 500, p: 45, m: 30, kind: 'בשרי',
+      ing: ['150 גרם חזה עוף פרוס', 'ביצה', 'פירורי לחם', 'ספריי שמן', 'תפוח אדמה בינוני', 'סלט ירקות'],
+      steps: ['לחמם תנור ל-200 מעלות.', 'לטבול את העוף בביצה ואז בפירורי לחם, לשים על נייר אפייה ולרסס שמן.', 'לאפות 18–20 דקות ולהפוך באמצע.', 'תפוח האדמה: לדקור במזלג ולחמם במיקרוגל 6–8 דקות.'] },
+    { n: 'פסטה בולונז', c: 'main', k: 620, p: 37, m: 25, kind: 'בשרי',
+      ing: ['80 גרם פסטה (לפני בישול)', '125 גרם בשר טחון רזה', 'חצי כוס רוטב עגבניות', 'חצי בצל', 'כפית שמן'],
+      steps: ['לבשל את הפסטה ולסנן.', 'לטגן בצל קצוץ בשמן, להוסיף את הבשר ולפורר אותו עד שהוא משחים.', 'להוסיף את הרוטב, לבשל 5 דקות ולערבב עם הפסטה.'] },
+    { n: 'ארוחת ערב ישראלית', c: 'main', k: 415, p: 31, m: 10, kind: 'חלבי',
+      ing: ['2 ביצים (קשות או חביתה)', "חצי גביע קוטג'", 'פרוסת לחם מלא', 'סלט ירקות גדול', 'כפית שמן זית ולימון'],
+      steps: ['להכין את הביצים.', 'לחתוך סלט ולתבל בשמן זית ולימון.', "להגיש עם הקוטג' והלחם."] },
+    { n: 'חומוס עם ביצים קשות ופיתה', c: 'main', k: 430, p: 22, m: 12, kind: 'פרווה',
+      ing: ['4 כפות חומוס', '2 ביצים קשות', 'חצי פיתה', 'ירקות חתוכים'],
+      steps: ['ביצים קשות: לבשל במים רותחים 10 דקות ולקרר במים קרים.', 'לשים בצלחת את החומוס, הביצים, הפיתה והירקות.'] },
+    { n: 'פיצה טורטייה', c: 'main', k: 250, p: 17, m: 10, kind: 'חלבי',
+      ing: ['טורטייה', '2 כפות רוטב עגבניות', '40 גרם גבינה צהובה מגוררת (עדיף 9%)', 'תירס, זיתים או פטריות'],
+      steps: ['למרוח את הרוטב על הטורטייה ולפזר גבינה ותוספות.', 'לאפות בתנור או בטוסטר אובן 6–8 דקות, עד שהגבינה נמסה.'] },
+
+    { n: '2 ביצים קשות', c: 'snack', k: 140, p: 12, m: 12, kind: 'פרווה',
+      ing: ['2 ביצים', 'מלח ופלפל'],
+      steps: ['לבשל במים רותחים 10 דקות.', 'לקרר במים קרים ולקלף.', 'אפשר להכין כמה מראש: בקליפה הן נשמרות במקרר עד שבוע.'] },
+    { n: 'יוגורט חלבון', c: 'snack', k: 130, p: 20, m: 0, kind: 'חלבי',
+      ing: ['גביע יוגורט חלבון'],
+      steps: ['מוכן לאכילה. אפשר להוסיף קצת פרי.'] },
+    { n: 'טונה עם פריכיות', c: 'snack', k: 200, p: 28, m: 3, kind: 'פרווה',
+      ing: ['קופסת טונה במים', '2 פריכיות אורז', 'מלפפון'],
+      steps: ['לסנן את הטונה ולשים על הפריכיות, עם פרוסות מלפפון.'] },
+    { n: 'שייק בננה ויוגורט', c: 'snack', k: 330, p: 30, m: 5, kind: 'חלבי',
+      ing: ['כוס חלב 1%', 'בננה', 'גביע יוגורט חלבון', 'כמה קוביות קרח'],
+      steps: ['לשים הכול בבלנדר ולטחון עד שהשייק חלק.'] },
+    { n: "קוטג' עם פריכיות", c: 'snack', k: 190, p: 15, m: 2, kind: 'חלבי',
+      ing: ["חצי גביע קוטג'", '2 פריכיות אורז', 'עגבנייה (לא חובה)'],
+      steps: ["למרוח את הקוטג' על הפריכיות."] },
+    { n: 'גבינה לבנה עם מקלות ירקות', c: 'snack', k: 150, p: 12, m: 5, kind: 'חלבי',
+      ing: ['חצי גביע גבינה לבנה 5%', 'גזר, מלפפון ופלפל'],
+      steps: ['לחתוך את הירקות למקלות ולטבול בגבינה.'] },
+    { n: 'שוקו ביתי', c: 'snack', k: 135, p: 9, m: 3, kind: 'חלבי',
+      ing: ['כוס חלב 1%', 'כף אבקת קקאו', 'כפית סוכר'],
+      steps: ['לערבב את הקקאו והסוכר עם מעט חלב, ואז להוסיף את שאר החלב. אפשר גם לחמם.'] },
+    { n: 'תפוח עם חמאת בוטנים', c: 'snack', k: 190, p: 4, m: 2, kind: 'פרווה',
+      ing: ['תפוח', 'כף חמאת בוטנים'],
+      steps: ['לחתוך את התפוח לפלחים ולטבול בחמאת בוטנים.'] },
+    { n: 'חופן שקדים', c: 'snack', k: 145, p: 5, m: 0, kind: 'פרווה',
+      ing: ['25 גרם שקדים (בערך 20)'],
+      steps: ['מוכן לאכילה.'] }
+  ];
+
+  // Single foods for the diary: [name, calories, protein]
+  var FOODS = [
+    ['ביצה', 70, 6], ['פרוסת לחם', 75, 3.5], ['פיתה', 220, 7], ['טורטייה', 120, 3.5], ['לחמנייה', 180, 6],
+    ["קוטג' (חצי גביע)", 120, 14], ["קוטג' (גביע שלם)", 240, 28], ['גבינה לבנה 5% (3 כפות)', 55, 5],
+    ['גבינה צהובה (פרוסה)', 70, 5], ['גבינה צהובה 9% (פרוסה)', 50, 6.5], ['יוגורט חלבון (גביע)', 130, 20],
+    ['חלב 3% (כוס)', 145, 8], ['חלב 1% (כוס)', 105, 8.5], ['שוקו (כוס)', 180, 8],
+    ['חזה עוף מבושל (100 גרם)', 165, 31], ['שניצל מטוגן (אחד)', 300, 22], ['טונה במים (קופסה)', 120, 26],
+    ['טונה בשמן (קופסה, מסוננת)', 190, 25], ['קציצת המבורגר (בלי לחמנייה)', 280, 25], ['נקניקייה', 120, 6],
+    ['אורז מבושל (כוס)', 200, 4], ['פסטה מבושלת (כוס)', 220, 8], ['פתיתים מבושלים (כוס)', 220, 7],
+    ['תפוח אדמה (בינוני)', 150, 4], ["צ'יפס (מנה בינונית)", 350, 4], ['חומוס (3 כפות)', 120, 4], ['טחינה (כף)', 90, 2.5],
+    ['סלט ירקות (קערה, בלי שמן)', 40, 1.5], ['שמן זית (כף)', 120, 0], ['אבוקדו (רבע)', 80, 1],
+    ['בננה', 105, 1], ['תפוח', 95, 0.5], ['תפוז', 70, 1], ['ענבים (כוס)', 100, 1], ['תמר', 65, 0.5],
+    ['שקדים (חופן)', 145, 5], ['חמאת בוטנים (כף)', 95, 4], ['שיבולת שועל (חצי כוס)', 150, 5], ['דגני בוקר (כוס)', 115, 2],
+    ['פריכיית אורז', 35, 0.7], ['חטיף חלבון', 200, 20], ['במבה (שקית קטנה)', 135, 4], ['ביסלי (שקית קטנה)', 170, 3],
+    ['שוקולד (שורה)', 110, 1.5], ['עוגייה', 80, 1], ['גלידה (כדור)', 140, 2.5], ['פיצה (משולש)', 280, 12],
+    ['פלאפל בפיתה', 600, 18], ['שווארמה בפיתה', 700, 38], ['המבורגר בלחמנייה', 500, 28], ['סושי (רול, 8 יחידות)', 320, 10],
+    ['קולה (פחית)', 140, 0], ['מיץ תפוזים (כוס)', 110, 2]
+  ];
+
+  var ACT = [
+    { b: 'כמעט בלי ספורט', s: 'רוב היום בישיבה' },
+    { b: 'קצת', s: 'הליכות, או ספורט 1–2 פעמים בשבוע' },
+    { b: 'פעיל', s: 'אימונים 3–5 פעמים בשבוע' },
+    { b: 'מאוד פעיל', s: 'אימון כמעט כל יום, או ספורט תחרותי' }
+  ];
+  var GOALS = {
+    cut: { b: 'להוריד אחוזי שומן', s: 'קצת פחות קלוריות והרבה חלבון' },
+    build: { b: 'לבנות שריר', s: 'קצת יותר קלוריות והרבה חלבון' },
+    keep: { b: 'לשמור על מה שיש', s: 'בדיוק מה שהגוף צריך' }
+  };
+  var CATS = [['all', 'הכול'], ['boker', 'בוקר'], ['main', 'צהריים וערב'], ['snack', 'נשנושים']];
+  var DISCLAIMER = 'המספרים הם הערכה לפי נוסחאות מקובלות, לא מרשם. לתוכנית אישית אפשר לפנות לרופא המשפחה או לדיאטנית.';
+
+  var I = {
+    x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+    right: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
+    left: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    logo: '<svg viewBox="0 0 512 512" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3DAA6E"/><stop offset="1" stop-color="#1E6B41"/></linearGradient></defs><rect width="512" height="512" fill="url(#lg)"/><circle cx="256" cy="268" r="150" fill="#fff" fill-opacity=".96"/><circle cx="256" cy="268" r="112" fill="#E3F3E9"/><g transform="rotate(-35 256 268)"><path d="M256 178c58 22 70 116 0 180c-70-64-58-158 0-180Z" fill="#2E8B57"/><path d="M256 200v150" stroke="#E3F3E9" stroke-width="9" stroke-linecap="round"/></g></svg>'
+  };
+
+  // ---------- storage ----------
+  var KEY = 'tzuna.v1';
+  function blank() { return { profile: null, weights: [], log: {}, mine: [] }; }
+  var ISO = /^\d{4}-\d\d-\d\d$/;
+  function num(v) { var n = +v; return isFinite(n) ? n : 0; }
+  function normalize(d) {
+    var b = blank();
+    if (!d || typeof d !== 'object') return b;
+    var p = d.profile;
+    if (p && (p.sex === 'm' || p.sex === 'f') && num(p.age) > 0 && num(p.height) > 0 && num(p.weight) > 0) {
+      var a = Math.round(num(p.activity));
+      b.profile = { sex: p.sex, age: Math.round(num(p.age)), height: num(p.height), weight: num(p.weight),
+        activity: a >= 0 && a <= 3 ? a : 2, goal: GOALS[p.goal] ? p.goal : 'cut' };
+    }
+    if (Array.isArray(d.weights)) b.weights = d.weights.filter(function (w) { return w && ISO.test(w.d) && num(w.kg) > 0; })
+      .map(function (w) { return { d: w.d, kg: num(w.kg) }; });
+    if (d.log && typeof d.log === 'object') Object.keys(d.log).forEach(function (k) {
+      if (!ISO.test(k) || !Array.isArray(d.log[k])) return;
+      var arr = d.log[k].filter(function (e) { return e && typeof e.name === 'string'; }).map(function (e) {
+        return { id: String(e.id || uid()), name: e.name.slice(0, 80), kcal: num(e.kcal), p: num(e.p), qty: num(e.qty) > 0 ? num(e.qty) : 1, t: typeof e.t === 'string' ? e.t.slice(0, 5) : '' };
+      });
+      if (arr.length) b.log[k] = arr;
+    });
+    if (Array.isArray(d.mine)) b.mine = d.mine.filter(function (f) { return f && typeof f.name === 'string' && f.name; })
+      .map(function (f) { return { name: f.name.slice(0, 80), kcal: num(f.kcal), p: num(f.p) }; });
+    return b;
+  }
+  function load() {
+    try { var s = localStorage.getItem(KEY); if (s) return normalize(JSON.parse(s)); } catch (e) {}
+    return blank();
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(db)); }
+    catch (e) { toast('השמירה בטלפון לא הצליחה'); }
+  }
+
+  // ---------- helpers ----------
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function iso(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function todayISO() { return iso(new Date()); }
+  function parseISO(s) { var p = s.split('-'); return new Date(+p[0], p[1] - 1, +p[2]); }
+  function shiftDay(s, n) { var d = parseISO(s); d.setDate(d.getDate() + n); return iso(d); }
+  function hhmm() { var d = new Date(); return pad(d.getHours()) + ':' + pad(d.getMinutes()); }
+  function fmt(n) { return Math.round(n).toLocaleString('he-IL'); }
+  function fmt1(n) { return n % 1 ? (Math.round(n * 10) / 10).toLocaleString('he-IL') : fmt(n); }
+  function r5(n) { return Math.round(n / 5) * 5; }
+  function r50(n) { return Math.round(n / 50) * 50; }
+  function dens(m) { return m.p / m.k * 100; }
+  function norm(s) { return String(s).toLowerCase().replace(/['"`׳״]/g, '').replace(/\s+/g, ' ').trim(); }
+  function qtyLabel(q) { return q === 1 ? '' : q === 0.5 ? 'חצי מנה' : fmt1(q) + ' מנות'; }
+  var fmtWeekday, fmtDate, fmtLong;
+  try {
+    fmtWeekday = new Intl.DateTimeFormat('he-IL', { weekday: 'long' });
+    fmtDate = new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'long' });
+    fmtLong = new Intl.DateTimeFormat('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+  } catch (e) {}
+  function dayName(d) { return fmtWeekday ? fmtWeekday.format(d) : ''; }
+  function dayDate(d) { return fmtDate ? fmtDate.format(d) : (d.getDate() + '.' + (d.getMonth() + 1)); }
+  function dayLong(d) { return fmtLong ? fmtLong.format(d) : dayDate(d); }
+
+  // ---------- the math ----------
+  // Under 19: the Institute of Medicine estimated energy requirement for ages 9-18 (it already includes growth).
+  // 19 and up: Mifflin-St Jeor times an activity factor.
+  // Teens cutting fat lose at most 10% (with a floor), because they are still growing.
+  function targets(p) {
+    var a = p.age, w = p.weight, hm = p.height / 100, f = p.sex === 'f', teen = a <= 18, burn;
+    if (teen) {
+      var pa = (f ? [1, 1.16, 1.31, 1.56] : [1, 1.13, 1.26, 1.42])[p.activity] || 1;
+      burn = f ? 135.3 - 30.8 * a + pa * (10 * w + 934 * hm) + 25
+               : 88.5 - 61.9 * a + pa * (26.7 * w + 903 * hm) + 25;
+    } else {
+      var af = [1.2, 1.375, 1.55, 1.725][p.activity] || 1.2;
+      burn = (10 * w + 6.25 * p.height - 5 * a + (f ? -161 : 5)) * af;
+    }
+    var kcal = burn;
+    if (p.goal === 'cut') {
+      var floor = teen ? (f ? 1600 : 1800) : (f ? 1400 : 1600);
+      kcal = Math.max(burn * (teen ? 0.9 : 0.85), Math.min(floor, burn));
+    } else if (p.goal === 'build') kcal = burn + (teen ? 250 : 300);
+    var perKg = p.goal === 'cut' ? 1.8 : p.goal === 'build' ? 1.6 : 1.2;
+    var refW = Math.min(w, 25 * hm * hm); // protein from a healthy reference weight, so it never balloons
+    return { burn: r50(burn), kcal: r50(kcal), protein: r5(perKg * refW), teen: teen };
+  }
+
+  // ---------- state ----------
+  var db = load();
+  var ui = { tab: 'today', day: todayISO(), followToday: true, cat: 'all', sortP: false, addTab: 'foods', sugShift: 0, sheet: null };
+  var app = document.getElementById('app'), nav = document.getElementById('nav');
+  var overlay = document.getElementById('overlay'), sheetEl = document.getElementById('sheet'), toastEl = document.getElementById('toast');
+
+  // ---------- pages ----------
+  function render() {
+    if (!db.profile) { nav.hidden = true; app.innerHTML = renderSetup(); return; }
+    nav.hidden = false;
+    Array.prototype.forEach.call(nav.querySelectorAll('[data-tab]'), function (b) {
+      if (b.dataset.tab === ui.tab) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    app.innerHTML = ui.tab === 'ideas' ? renderIdeas() : ui.tab === 'me' ? renderMe() : renderToday();
+  }
+
+  function renderSetup() {
+    return '<div class="hero">' + I.logo + '<h1>התזונה שלי</h1><p class="muted">כמה פרטים, והאפליקציה תחשב כמה לאכול ביום וכמה חלבון. הכול נשמר רק בטלפון הזה.</p></div>' +
+      '<section class="card">' + profileForm(null, 'חישוב והתחלה') + '</section>' +
+      '<p class="disclaimer">' + DISCLAIMER + '</p>';
+  }
+
+  function renderToday() {
+    var t = targets(db.profile), today = todayISO(), isToday = ui.day === today, d = parseISO(ui.day);
+    var items = db.log[ui.day] || [];
+    var k = 0, p = 0;
+    items.forEach(function (e) { k += e.kcal * e.qty; p += e.p * e.qty; });
+    k = Math.round(k); p = Math.round(p);
+    var pLeft = t.protein - p, kLeft = t.kcal - k;
+    var title = isToday ? 'היום' : ui.day === shiftDay(today, -1) ? 'אתמול' : dayName(d);
+    var sub = isToday ? dayLong(d) : dayDate(d);
+
+    var h = '<header class="dayhead">' +
+      '<button type="button" class="iconbtn" data-act="day" data-n="-1" aria-label="יום קודם">' + I.right + '</button>' +
+      '<div class="daytitle"><h1>' + title + '</h1><div class="muted">' + sub + '</div>' +
+      (isToday ? '' : '<button type="button" class="linkbtn" data-act="gotoday">חזרה להיום</button>') + '</div>' +
+      '<button type="button" class="iconbtn" data-act="day" data-n="1" aria-label="יום הבא"' + (isToday ? ' disabled' : '') + '>' + I.left + '</button>' +
+      '</header>';
+
+    h += '<section class="card meter" aria-label="חלבון"><div class="meter-top"><span class="meter-label">חלבון</span>' +
+      '<span class="meter-num num"><b>' + fmt(p) + '</b> מתוך ' + fmt(t.protein) + ' גרם</span></div>' +
+      '<div class="bar"><i style="width:' + Math.min(100, p / t.protein * 100) + '%"></i></div>' +
+      (pLeft <= 0 ? '<div class="meter-note done">✓ הגעת ליעד החלבון</div>'
+        : '<div class="meter-note">' + (isToday ? 'נשארו ' + fmt(pLeft) + ' גרם' : 'חסרו ' + fmt(pLeft) + ' גרם ליעד') + '</div>') +
+      '</section>';
+
+    h += '<section class="card meter kcal" aria-label="קלוריות"><div class="meter-top"><span class="meter-label">קלוריות</span>' +
+      '<span class="meter-num num"><b>' + fmt(k) + '</b> מתוך ' + fmt(t.kcal) + '</span></div>' +
+      '<div class="bar"><i style="width:' + Math.min(100, k / t.kcal * 100) + '%"></i></div>' +
+      '<div class="meter-note">' + (kLeft >= 0 ? (isToday ? 'נשארו ' + fmt(kLeft) + ' קלוריות' : fmt(kLeft) + ' מתחת ליעד') : 'מעל היעד ב-' + fmt(-kLeft)) + '</div>' +
+      '</section>';
+
+    h += '<button type="button" class="btn primary block" data-act="add">' + I.plus + 'הוספת אוכל</button>';
+
+    if (isToday && pLeft > 5) {
+      var sug = suggestions(Math.max(kLeft, 0), pLeft, items.length);
+      if (sug.length) {
+        h += '<section class="card sug"><div class="sug-head"><h2>רעיון לארוחה הבאה</h2>' +
+          '<button type="button" class="linkbtn" data-act="sugmore">רעיון אחר</button></div>' +
+          '<div class="rows">' + sug.map(function (s) {
+            return '<button type="button" class="row" data-act="meal" data-i="' + s.i + '">' + rowInner(s.m.n, s.m.k, s.m.p, s.m.m ? s.m.m + ' דקות הכנה' : 'בלי הכנה') + '</button>';
+          }).join('') + '</div></section>';
+      }
+    }
+
+    h += '<section class="card list"><h2>מה אכלתי</h2>';
+    if (!items.length) h += '<p class="empty">עוד לא נרשם כלום' + (isToday ? ' היום' : ' ביום הזה') + '.</p>';
+    else h += '<div class="rows">' + items.map(function (e) {
+      var subl = [e.t, qtyLabel(e.qty)].filter(Boolean).join(' · ');
+      return '<button type="button" class="row" data-act="edit" data-id="' + esc(e.id) + '">' + rowInner(e.name, e.kcal * e.qty, e.p * e.qty, subl) + '</button>';
+    }).join('') + '</div>';
+    h += '</section>';
+    return h;
+  }
+
+  function rowInner(name, k, p, sub) {
+    return '<span class="row-main"><span class="row-name">' + esc(name) + '</span>' + (sub ? '<span class="row-sub">' + esc(sub) + '</span>' : '') + '</span>' +
+      '<span class="row-nums num"><b>' + fmt1(Math.round(p * 10) / 10) + '</b> גרם חלבון<br>' + fmt(k) + ' קלוריות</span>';
+  }
+
+  // Ideas that fit what is left today: the right kind for the hour, within the calories left, most protein first.
+  function suggestions(kLeft, pLeft, seed) {
+    var hr = new Date().getHours();
+    var cats = hr < 11 ? ['boker', 'snack'] : hr < 21 ? ['main', 'snack'] : ['snack'];
+    var cap = Math.max(kLeft, 200);
+    var c = [];
+    MEALS.forEach(function (m, i) { if (cats.indexOf(m.c) >= 0 && m.k <= cap) c.push({ m: m, i: i }); });
+    if (!c.length) MEALS.forEach(function (m, i) { if (m.c === 'snack') c.push({ m: m, i: i }); });
+    c.sort(function (a, b) { return (Math.min(b.m.p, pLeft) - Math.min(a.m.p, pLeft)) || (a.m.k - b.m.k); });
+    var top = c.slice(0, 6);
+    if (top.length <= 2) return top;
+    var start = (seed + ui.sugShift * 2) % top.length;
+    return [top[start], top[(start + 1) % top.length]];
+  }
+
+  function renderIdeas() {
+    var cut = db.profile.goal === 'cut';
+    var list = [];
+    MEALS.forEach(function (m, i) { if (ui.cat === 'all' || m.c === ui.cat) list.push({ m: m, i: i }); });
+    if (ui.sortP) list.sort(function (a, b) { return b.m.p - a.m.p; });
+    return '<header class="pagehead"><h1>רעיונות לארוחות</h1><p class="muted">ארוחות פשוטות שאפשר להכין לבד. המספרים הם הערכה למנה אחת.</p></header>' +
+      '<div class="chips" role="group" aria-label="סינון">' + CATS.map(function (c) {
+        return '<button type="button" class="chip" data-act="cat" data-k="' + c[0] + '" aria-pressed="' + (ui.cat === c[0]) + '">' + c[1] + '</button>';
+      }).join('') + '<button type="button" class="chip" data-act="sortp" aria-pressed="' + ui.sortP + '">הכי הרבה חלבון</button></div>' +
+      '<div>' + list.map(function (x) {
+        var m = x.m;
+        return '<button type="button" class="meal" data-act="meal" data-i="' + x.i + '"><span class="meal-top"><span class="meal-name">' + m.n + '</span><span class="tag">' + m.kind + '</span></span>' +
+          '<span class="meal-nums num"><span class="p"><b>' + m.p + '</b> גרם חלבון</span><span>' + fmt(m.k) + ' קלוריות</span><span>' + (m.m ? m.m + ' דקות' : 'בלי הכנה') + '</span></span>' +
+          (dens(m) >= 7 ? '<span class="badge">' + (cut ? 'מעולה לחיטוב' : 'הרבה חלבון') + '</span>' : '') + '</button>';
+      }).join('') + '</div>';
+  }
+
+  function renderMe() {
+    var p = db.profile, t = targets(p), g = GOALS[p.goal], burn = fmt(t.burn);
+    var why = p.goal === 'cut'
+      ? (t.teen ? 'הגוף שורף בערך ' + burn + ' קלוריות ביום. כדי להוריד אחוזי שומן, היעד נמוך רק בקצת (עד 10%), כי בגיל הזה הגוף עוד גדל. את רוב העבודה עושים החלבון, האימונים והשינה.'
+                : 'הגוף שורף בערך ' + burn + ' קלוריות ביום. כדי להוריד אחוזי שומן, היעד נמוך בערך ב-15%.')
+      : p.goal === 'build' ? 'הגוף שורף בערך ' + burn + ' קלוריות ביום. כדי לבנות שריר, היעד קצת מעל זה.'
+      : 'הגוף שורף בערך ' + burn + ' קלוריות ביום, וזה היעד.';
+    var facts = [p.sex === 'f' ? 'בת' : 'בן', 'גיל ' + p.age, fmt1(p.height) + ' ס"מ', fmt1(p.weight) + ' ק"ג', 'פעילות: ' + ACT[p.activity].b, g.b];
+
+    var h = '<header class="pagehead"><h1>אני</h1></header>';
+    h += '<section class="card"><div class="stats">' +
+      '<div><b class="num">' + fmt(t.kcal) + '</b><span>קלוריות ביום</span></div>' +
+      '<div><b class="num">' + t.protein + '</b><span>גרם חלבון ביום</span></div></div>' +
+      '<p class="mt">בערך ' + r5(t.protein / 4) + ' גרם חלבון בכל ארוחה, אם אוכלים 4 ארוחות ביום.</p>' +
+      '<p class="muted small mt">' + why + '</p>' +
+      '<div class="facts">' + facts.map(function (f) { return '<span>' + f + '</span>'; }).join('') + '</div>' +
+      '<button type="button" class="btn block mt" data-act="editprofile">עריכת הפרטים</button></section>';
+
+    var ws = db.weights.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }).slice(0, 6);
+    h += '<section class="card"><h2>עדכון משקל</h2>' +
+      '<form class="wform" data-form="weight"><input class="input" name="kg" type="text" inputmode="decimal" placeholder="משקל בק&quot;ג" aria-label="משקל בקילוגרמים" autocomplete="off"><button class="btn primary" type="submit">שמירה</button></form>' +
+      (ws.length ? '<ul class="wlist num">' + ws.map(function (w) { var d = parseISO(w.d); return '<li><span>' + dayDate(d) + '</span><span>' + fmt1(w.kg) + ' ק"ג</span></li>'; }).join('') + '</ul>' : '') +
+      '<p class="muted small mt">' + (t.teen ? 'בגיל הזה גם גדלים, אז המשקל יכול לעלות גם כשאחוזי השומן יורדים. ' : 'כשבונים שריר, המשקל יכול להישאר דומה גם כשאחוזי השומן יורדים. ') +
+      'המראה והבגדים מראים את השינוי טוב יותר מהמשקל.</p></section>';
+
+    var tips = p.goal === 'cut' ? [
+      "חלבון בכל ארוחה: ביצים, קוטג', יוגורט חלבון, עוף, טונה.",
+      'אימוני כוח 2–4 פעמים בשבוע. ככה הגוף שומר על השריר ובונה עוד.',
+      'לישון 8–10 שעות. כשישנים מעט, רעבים יותר.',
+      'הרבה ירקות ומים, ופחות שתייה מתוקה.',
+      'לא לדלג על ארוחות. רעב גדול נגמר בדרך כלל באכילה של יותר.',
+      'לבדוק את השינוי לאורך שבועות, לא יום אחרי יום.'
+    ] : [
+      'חלבון בכל ארוחה, ולא רק בארוחה אחת גדולה.',
+      'אימוני כוח 3–4 פעמים בשבוע, ולהעלות משקל בהדרגה.',
+      'לישון 8–10 שעות. השריר נבנה בזמן המנוחה.',
+      'אין צורך באבקות חלבון: אפשר להגיע ליעד מאוכל רגיל.'
+    ];
+    h += '<section class="card"><h2>מה הכי עוזר</h2><ul class="tips">' + tips.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
+      '<p class="muted small mt">אם יש סחרחורת, חולשה או עייפות גדולה: לאכול יותר, ולספר להורים או לרופא.</p></section>';
+
+    h += '<section class="card"><h2>גיבוי</h2><p class="muted small">הכול נשמר רק בטלפון הזה. כדאי לשמור גיבוי מדי פעם, למשל לשלוח אותו לעצמך בוואטסאפ.</p>' +
+      '<div class="btnrow"><button type="button" class="btn" data-act="export">שמירת גיבוי</button>' +
+      '<label class="btn" tabindex="0">שחזור מגיבוי<input type="file" accept=".json,application/json" id="importfile" hidden></label></div>' +
+      '<button type="button" class="btn ghost danger block mt" data-act="wipe">מחיקת כל הנתונים</button></section>';
+    h += '<p class="disclaimer">' + DISCLAIMER + '</p>';
+    return h;
+  }
+
+  function profileForm(p, label) {
+    p = p || { sex: '', age: '', height: '', weight: '', activity: -1, goal: 'cut' };
+    var h = '<form class="pform" data-form="profile" novalidate>';
+    h += '<fieldset><legend>מי אני</legend><div class="sexrow">' + [['m', 'בן'], ['f', 'בת']].map(function (o) {
+      return '<label class="opt"><input type="radio" name="sex" value="' + o[0] + '"' + (p.sex === o[0] ? ' checked' : '') + '><b>' + o[1] + '</b></label>';
+    }).join('') + '</div></fieldset>';
+    h += '<div class="grid3">' +
+      '<label class="field">גיל<input class="input" name="age" type="text" inputmode="numeric" autocomplete="off" value="' + esc(p.age) + '"></label>' +
+      '<label class="field">גובה (ס"מ)<input class="input" name="height" type="text" inputmode="numeric" autocomplete="off" value="' + esc(p.height) + '"></label>' +
+      '<label class="field">משקל (ק"ג)<input class="input" name="weight" type="text" inputmode="decimal" autocomplete="off" value="' + esc(p.weight) + '"></label></div>';
+    h += '<fieldset><legend>כמה פעילות יש לי</legend>' + ACT.map(function (a, i) {
+      return '<label class="opt"><input type="radio" name="activity" value="' + i + '"' + (p.activity === i ? ' checked' : '') + '><span><b>' + a.b + '</b><span>' + a.s + '</span></span></label>';
+    }).join('') + '</fieldset>';
+    h += '<fieldset><legend>המטרה שלי</legend>' + Object.keys(GOALS).map(function (k) {
+      return '<label class="opt"><input type="radio" name="goal" value="' + k + '"' + (p.goal === k ? ' checked' : '') + '><span><b>' + GOALS[k].b + '</b><span>' + GOALS[k].s + '</span></span></label>';
+    }).join('') + '</fieldset>';
+    h += '<p class="err" role="alert" hidden></p><button class="btn primary block" type="submit">' + label + '</button></form>';
+    return h;
+  }
+
+  function readNum(v) { return parseFloat(String(v == null ? '' : v).replace(',', '.').trim()); }
+  function readProfile(form) {
+    var fd = new FormData(form);
+    var p = { sex: fd.get('sex'), age: Math.round(readNum(fd.get('age'))), height: readNum(fd.get('height')), weight: readNum(fd.get('weight')),
+      activity: fd.get('activity') == null ? -1 : +fd.get('activity'), goal: fd.get('goal') };
+    if (p.sex !== 'm' && p.sex !== 'f') return 'צריך לבחור בן או בת. זה משנה את החישוב.';
+    if (!(p.age >= 10 && p.age <= 99)) return 'הגיל צריך להיות בין 10 ל-99.';
+    if (!(p.height >= 120 && p.height <= 230)) return 'הגובה בסנטימטרים, למשל 170.';
+    if (!(p.weight >= 25 && p.weight <= 250)) return 'המשקל בקילוגרמים, למשל 62.5.';
+    if (!(p.activity >= 0 && p.activity <= 3)) return 'צריך לבחור כמה פעילות יש.';
+    if (!GOALS[p.goal]) return 'צריך לבחור מטרה.';
+    p.height = Math.round(p.height); p.weight = Math.round(p.weight * 10) / 10;
+    return p;
+  }
+  function setWeight(kg) {
+    var d = todayISO();
+    db.weights = db.weights.filter(function (w) { return w.d !== d; });
+    db.weights.push({ d: d, kg: kg });
+    if (db.weights.length > 400) db.weights = db.weights.slice(-400);
+  }
+
+  // ---------- sheets ----------
+  function head(title, back) {
+    return '<div class="sheet-head">' + (back ? '<button type="button" class="iconbtn" data-act="back" aria-label="חזרה">' + I.right + '</button>' : '') +
+      '<h2 id="sheettitle">' + title + '</h2><button type="button" class="iconbtn" data-act="close" aria-label="סגירה">' + I.x + '</button></div>';
+  }
+  function openSheet(s) { ui.sheet = s; renderSheet(); }
+  function closeSheet() {
+    ui.sheet = null; overlay.hidden = true; sheetEl.innerHTML = '';
+    document.body.classList.remove('locked');
+  }
+  function renderSheet() {
+    var s = ui.sheet;
+    if (!s) return closeSheet();
+    var h = s.type === 'add' ? sheetAdd(s) : s.type === 'qty' ? sheetQty(s) : s.type === 'meal' ? sheetMeal(s) : head('עריכת הפרטים') + profileForm(db.profile, 'שמירה');
+    sheetEl.innerHTML = h;
+    sheetEl.setAttribute('aria-labelledby', 'sheettitle');
+    overlay.hidden = false;
+    document.body.classList.add('locked');
+  }
+
+  function sheetAdd(s) {
+    var tabs = [['foods', 'מאכלים'], ['meals', 'ארוחות'], ['other', 'משהו אחר']];
+    var h = head('מה אכלת?') + '<div class="seg" role="group" aria-label="מה להוסיף">' + tabs.map(function (t) {
+      return '<button type="button" data-act="addtab" data-k="' + t[0] + '" aria-pressed="' + (s.tab === t[0]) + '">' + t[1] + '</button>';
+    }).join('') + '</div>';
+    if (s.tab === 'other') {
+      h += '<form class="mform" data-form="manual">' +
+        '<label class="field" style="margin-top:14px">מה זה?<input class="input" name="name" maxlength="60" autocomplete="off" placeholder="למשל: סנדוויץ\' של סבתא"></label>' +
+        '<div class="grid2"><label class="field">קלוריות<input class="input" name="kcal" type="text" inputmode="numeric" autocomplete="off"></label>' +
+        '<label class="field">חלבון (גרם)<input class="input" name="p" type="text" inputmode="decimal" autocomplete="off" placeholder="לא יודעים? 0"></label></div>' +
+        '<label class="check"><input type="checkbox" name="keep" checked> לשמור ברשימה לפעם הבאה</label>' +
+        '<p class="err" role="alert" hidden></p>' +
+        '<button class="btn primary block" type="submit">הוספה ליומן</button>' +
+        '<p class="muted small">את המספרים אפשר למצוא על האריזה, בטבלת הסימון התזונתי. אם אין, אפשר לבחור משהו דומה מהרשימה.</p></form>';
+    } else {
+      h += '<input class="input search" id="q" type="search" placeholder="חיפוש…" aria-label="חיפוש" autocomplete="off" enterkeyhint="search" value="' + esc(s.q || '') + '">' +
+        '<div class="rows" id="picklist">' + pickList(s) + '</div>';
+    }
+    return h;
+  }
+  function pickList(s) {
+    var q = norm(s.q || ''), h = '';
+    function hit(name) { return !q || norm(name).indexOf(q) >= 0; }
+    if (s.tab === 'foods') {
+      var mine = [];
+      db.mine.forEach(function (f, i) { if (hit(f.name)) mine.push(i); });
+      if (mine.length) h += '<h3 class="listhead">שמרתי</h3>' + mine.map(function (i) {
+        var f = db.mine[i];
+        return '<div class="pickrow"><button type="button" class="row" data-act="pick" data-src="mine" data-i="' + i + '">' + rowInner(f.name, f.kcal, f.p) + '</button>' +
+          '<button type="button" class="iconbtn sm" data-act="delmine" data-i="' + i + '" aria-label="להסיר מהרשימה: ' + esc(f.name) + '">' + I.x + '</button></div>';
+      }).join('');
+      var foods = [];
+      FOODS.forEach(function (f, i) { if (hit(f[0])) foods.push(i); });
+      if (foods.length && mine.length) h += '<h3 class="listhead">מאכלים</h3>';
+      h += foods.map(function (i) { var f = FOODS[i]; return '<button type="button" class="row" data-act="pick" data-src="food" data-i="' + i + '">' + rowInner(f[0], f[1], f[2]) + '</button>'; }).join('');
+    } else {
+      MEALS.forEach(function (m, i) { if (hit(m.n)) h += '<button type="button" class="row" data-act="pick" data-src="meal" data-i="' + i + '">' + rowInner(m.n, m.k, m.p) + '</button>'; });
+    }
+    return h || '<p class="empty">לא מצאתי. אפשר להוסיף ב"משהו אחר".</p>';
+  }
+  function pickItem(src, i) {
+    if (src === 'mine') { var f = db.mine[i]; return f && { name: f.name, kcal: f.kcal, p: f.p }; }
+    if (src === 'food') { var x = FOODS[i]; return x && { name: x[0], kcal: x[1], p: x[2] }; }
+    var m = MEALS[i]; return m && { name: m.n, kcal: m.k, p: m.p };
+  }
+
+  function sheetQty(s) {
+    var it = s.item;
+    return head(esc(it.name), !!s.back) +
+      '<p class="muted">מנה אחת: ' + fmt(it.kcal) + ' קלוריות · ' + fmt1(it.p) + ' גרם חלבון</p>' +
+      '<div class="stepper"><button type="button" data-act="qty" data-d="-0.5" aria-label="פחות"' + (s.qty <= 0.5 ? ' disabled' : '') + '>−</button>' +
+      '<output class="num" aria-live="polite">' + fmt1(s.qty) + '</output>' +
+      '<button type="button" data-act="qty" data-d="0.5" aria-label="יותר"' + (s.qty >= 20 ? ' disabled' : '') + '>+</button></div>' +
+      '<p class="qty-cap muted">' + (s.qty === 1 ? 'מנה' : 'מנות') + '</p>' +
+      '<div class="qty-total num"><span class="p"><b>' + fmt(it.p * s.qty) + '</b> גרם חלבון</span><span><b>' + fmt(it.kcal * s.qty) + '</b> קלוריות</span></div>' +
+      '<button type="button" class="btn primary block" data-act="qtysave">' + (s.editId ? 'שמירה' : 'הוספה ליומן') + '</button>' +
+      (s.editId ? '<button type="button" class="btn ghost danger block mt" data-act="qtydel">מחיקה מהיומן</button>' : '');
+  }
+
+  function sheetMeal(s) {
+    var m = MEALS[s.i];
+    return head(m.n, !!s.back) +
+      '<div class="meal-nums num"><span class="p"><b>' + m.p + '</b> גרם חלבון</span><span>' + fmt(m.k) + ' קלוריות</span><span>' + (m.m ? m.m + ' דקות' : 'בלי הכנה') + '</span><span class="tag">' + m.kind + '</span></div>' +
+      '<h3 class="sub">מה צריך</h3><ul class="ing">' + m.ing.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
+      '<h3 class="sub">איך מכינים</h3><ol class="steps">' + m.steps.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ol>' +
+      '<button type="button" class="btn primary block mt" data-act="ate" data-i="' + s.i + '">אכלתי את זה</button>';
+  }
+
+  // ---------- diary changes ----------
+  function saveQty(s) {
+    var list = db.log[s.day] || (db.log[s.day] = []);
+    if (s.editId) {
+      list.forEach(function (e) { if (e.id === s.editId) e.qty = s.qty; });
+      save(); closeSheet(); render(); toast('עודכן');
+      return;
+    }
+    list.push({ id: uid(), name: s.item.name, kcal: s.item.kcal, p: s.item.p, qty: s.qty, t: s.day === todayISO() ? hhmm() : '' });
+    save(); closeSheet(); render();
+    toast(s.day === todayISO() ? 'נוסף ליומן של היום' : 'נוסף ליומן');
+  }
+  function delEntry(day, id) {
+    var list = db.log[day] || [], i = -1;
+    list.forEach(function (e, j) { if (e.id === id) i = j; });
+    if (i < 0) return;
+    var en = list.splice(i, 1)[0];
+    if (!list.length) delete db.log[day];
+    save(); closeSheet(); render();
+    toast('נמחק מהיומן', { label: 'ביטול', fn: function () {
+      var l = db.log[day] || (db.log[day] = []);
+      l.splice(Math.min(i, l.length), 0, en);
+      save(); render();
+    } });
+  }
+
+  // ---------- backup ----------
+  function exportData() {
+    var name = 'tzuna-backup-' + todayISO() + '.json';
+    var text = JSON.stringify({ app: 'tzuna', v: 1, saved: new Date().toISOString(), data: db });
+    try {
+      var file = new File([text], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: 'גיבוי תזונה' }).catch(function () {});
+        return;
+      }
+    } catch (e) {}
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  }
+  function importFile(file) {
+    var r = new FileReader();
+    r.onload = function () {
+      var d;
+      try { var j = JSON.parse(r.result); d = normalize(j && j.data ? j.data : j); } catch (e) { d = null; }
+      if (!d || (!d.profile && !Object.keys(d.log).length)) { toast('הקובץ הזה לא נראה כמו גיבוי של האפליקציה'); return; }
+      if (!confirm('להחליף את כל מה שיש עכשיו בטלפון בגיבוי הזה?')) return;
+      db = d; save(); ui.day = todayISO(); render(); toast('הגיבוי שוחזר');
+    };
+    r.readAsText(file);
+  }
+
+  // ---------- toast ----------
+  var toastTimer, toastFn = null;
+  function toast(msg, action) {
+    clearTimeout(toastTimer);
+    toastEl.innerHTML = '<span>' + esc(msg) + '</span>' + (action ? '<button type="button" data-act="toastact">' + esc(action.label) + '</button>' : '');
+    toastFn = action ? action.fn : null;
+    toastEl.hidden = false;
+    toastTimer = setTimeout(function () { toastEl.hidden = true; toastFn = null; }, action ? 5000 : 2200);
+  }
+
+  // ---------- events ----------
+  document.addEventListener('click', function (e) {
+    if (e.target === overlay) { closeSheet(); return; }
+    var el = e.target.closest('[data-act]');
+    if (!el) return;
+    var s = ui.sheet, a = el.dataset.act;
+    switch (a) {
+      case 'tab': ui.tab = el.dataset.tab; render(); window.scrollTo(0, 0); break;
+      case 'day': {
+        var nd = shiftDay(ui.day, +el.dataset.n);
+        if (nd <= todayISO()) { ui.day = nd; ui.followToday = nd === todayISO(); render(); }
+        break;
+      }
+      case 'gotoday': ui.day = todayISO(); ui.followToday = true; render(); break;
+      case 'add': openSheet({ type: 'add', tab: ui.addTab, q: '', day: ui.day }); break;
+      case 'addtab': s.tab = ui.addTab = el.dataset.k; s.q = ''; renderSheet(); break;
+      case 'pick': {
+        var it = pickItem(el.dataset.src, +el.dataset.i);
+        if (it) openSheet({ type: 'qty', item: it, qty: 1, day: s.day, back: s });
+        break;
+      }
+      case 'delmine': {
+        var f = db.mine[+el.dataset.i];
+        if (f && confirm('להסיר את "' + f.name + '" מהרשימה?')) { db.mine.splice(+el.dataset.i, 1); save(); refreshPick(); }
+        break;
+      }
+      case 'qty': s.qty = Math.min(20, Math.max(0.5, Math.round((s.qty + +el.dataset.d) * 2) / 2)); renderSheet(); break;
+      case 'qtysave': saveQty(s); break;
+      case 'qtydel': delEntry(s.day, s.editId); break;
+      case 'edit': {
+        var en = (db.log[ui.day] || []).filter(function (x) { return x.id === el.dataset.id; })[0];
+        if (en) openSheet({ type: 'qty', item: { name: en.name, kcal: en.kcal, p: en.p }, qty: en.qty, day: ui.day, editId: en.id });
+        break;
+      }
+      case 'meal': openSheet({ type: 'meal', i: +el.dataset.i }); break;
+      case 'ate': {
+        var m = MEALS[+el.dataset.i];
+        openSheet({ type: 'qty', item: { name: m.n, kcal: m.k, p: m.p }, qty: 1, day: todayISO(), back: s });
+        break;
+      }
+      case 'back': if (s && s.back) openSheet(s.back); else closeSheet(); break;
+      case 'close': closeSheet(); break;
+      case 'cat': ui.cat = el.dataset.k; render(); break;
+      case 'sortp': ui.sortP = !ui.sortP; render(); break;
+      case 'sugmore': ui.sugShift++; render(); break;
+      case 'editprofile': openSheet({ type: 'profile' }); break;
+      case 'export': exportData(); break;
+      case 'wipe':
+        if (confirm('למחוק את כל הנתונים מהטלפון? אי אפשר לבטל את זה.')) { db = blank(); save(); ui.tab = 'today'; ui.day = todayISO(); render(); window.scrollTo(0, 0); }
+        break;
+      case 'toastact': { var fn = toastFn; toastEl.hidden = true; toastFn = null; clearTimeout(toastTimer); if (fn) fn(); break; }
+    }
+  });
+  function refreshPick() { var pl = document.getElementById('picklist'); if (pl && ui.sheet) pl.innerHTML = pickList(ui.sheet); }
+
+  document.addEventListener('input', function (e) {
+    if (e.target.id === 'q' && ui.sheet && ui.sheet.type === 'add') { ui.sheet.q = e.target.value; refreshPick(); }
+  });
+
+  document.addEventListener('change', function (e) {
+    if (e.target.id === 'importfile' && e.target.files && e.target.files[0]) { importFile(e.target.files[0]); e.target.value = ''; }
+  });
+
+  function showErr(form, msg) {
+    var er = form.querySelector('.err');
+    er.textContent = msg; er.hidden = false;
+    er.scrollIntoView({ block: 'nearest' });
+  }
+  document.addEventListener('submit', function (e) {
+    var f = e.target, kind = f.dataset.form;
+    if (!kind) return;
+    e.preventDefault();
+    if (kind === 'profile') {
+      var p = readProfile(f);
+      if (typeof p === 'string') return showErr(f, p);
+      var isNew = !db.profile;
+      if (isNew || p.weight !== db.profile.weight) setWeight(p.weight);
+      db.profile = p; save(); closeSheet(); render(); window.scrollTo(0, 0);
+      toast(isNew ? 'הכול מוכן!' : 'הפרטים עודכנו');
+    } else if (kind === 'weight') {
+      var kg = readNum(f.kg.value);
+      if (!(kg >= 25 && kg <= 250)) { toast('המשקל בקילוגרמים, למשל 62.5'); return; }
+      kg = Math.round(kg * 10) / 10;
+      setWeight(kg); db.profile.weight = kg; save(); render();
+      toast('המשקל עודכן, והיעדים חושבו מחדש');
+    } else if (kind === 'manual') {
+      var name = f.name.value.trim(), kcal = readNum(f.kcal.value), pr = f.p.value.trim() ? readNum(f.p.value) : 0;
+      if (!name) return showErr(f, 'מה אכלת? צריך לכתוב שם.');
+      if (!(kcal >= 0 && kcal <= 5000)) return showErr(f, 'צריך לכתוב כמה קלוריות (מספר).');
+      if (!(pr >= 0 && pr <= 300)) return showErr(f, 'החלבון צריך להיות מספר בגרמים.');
+      var item = { name: name.slice(0, 60), kcal: Math.round(kcal), p: Math.round(pr * 10) / 10 };
+      if (f.keep.checked) {
+        db.mine = db.mine.filter(function (x) { return norm(x.name) !== norm(item.name); });
+        db.mine.unshift(item);
+      }
+      saveQty({ item: item, qty: 1, day: ui.sheet.day });
+    }
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && ui.sheet) closeSheet();
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.tagName === 'LABEL' && e.target.querySelector('input[type=file]')) { e.preventDefault(); e.target.querySelector('input').click(); }
+  });
+
+  // a new day starts while the app stays open in the background
+  function maybeNewDay() {
+    if (ui.followToday && ui.day !== todayISO()) { ui.day = todayISO(); if (!ui.sheet) render(); }
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) maybeNewDay(); });
+  window.addEventListener('focus', maybeNewDay);
+
+  // a sheet never moves sideways
+  sheetEl.addEventListener('scroll', function () { if (sheetEl.scrollLeft) sheetEl.scrollLeft = 0; }, { passive: true });
+
+  // iPhone: once the keyboard closes, the visible screen can stay shifted from where fixed parts are drawn,
+  // so the bottom bar floats up the page. visualViewport.offsetTop is that shift; move the bar by it (CSS --vv-y).
+  (function () {
+    var vv = window.visualViewport, root = document.documentElement, last = 0;
+    if (!vv) return;
+    function typing() {
+      var a = document.activeElement;
+      return !!a && (a.isContentEditable || a.tagName === 'TEXTAREA' || a.tagName === 'SELECT' || (a.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|file|range|color|image)$/.test(a.type)));
+    }
+    function fix() {
+      var y = !typing() && Math.abs(vv.scale - 1) < 0.01 ? Math.round(vv.offsetTop) : 0;
+      if (Math.abs(y) < 2) y = 0;
+      if (y !== last) { last = y; root.style.setProperty('--vv-y', y + 'px'); }
+    }
+    vv.addEventListener('resize', fix);
+    vv.addEventListener('scroll', fix);
+    window.addEventListener('scroll', fix, { passive: true });
+    document.addEventListener('focusin', fix);
+    document.addEventListener('focusout', function () { setTimeout(fix, 0); setTimeout(fix, 400); setTimeout(fix, 1000); });
+  })();
+
+  // ask the browser to keep this app's data even when the phone runs low on space
+  try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
