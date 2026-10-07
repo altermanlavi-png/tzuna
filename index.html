@@ -130,6 +130,12 @@
   .chips { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip { min-height: 38px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); font-size: .92rem; font-weight: 500; }
   .chip[aria-pressed="true"] { background: var(--text); color: var(--bg); border-color: transparent; }
+  /* food groups in the add sheet: one row that scrolls sideways inside itself */
+  .fchips { display: flex; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; margin: 10px -16px 0; padding: 0 16px 2px; }
+  .fchips::-webkit-scrollbar { display: none; }
+  .fchips .chip { flex: none; min-height: 34px; padding: 0 12px; font-size: .86rem; }
+  .empty .btn { font-weight: 500; }
+  #picklist > .btn.ghost { margin-top: 6px; color: var(--accent); font-weight: 500; }
   .meal { display: block; width: 100%; text-align: start; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
   .meal + .meal { margin-top: 10px; }
   .meal-top { display: flex; align-items: flex-start; gap: 8px; }
@@ -332,24 +338,149 @@
       steps: ['מוכן לאכילה.'] }
   ];
 
-  // Single foods for the diary: [name, calories, protein]
-  var FOODS = [
-    ['ביצה', 70, 6], ['פרוסת לחם', 75, 3.5], ['פיתה', 220, 7], ['טורטייה', 120, 3.5], ['לחמנייה', 180, 6],
-    ["קוטג' (חצי גביע)", 120, 14], ["קוטג' (גביע שלם)", 240, 28], ['גבינה לבנה 5% (3 כפות)', 55, 5],
-    ['גבינה צהובה (פרוסה)', 70, 5], ['גבינה צהובה 9% (פרוסה)', 50, 6.5], ['יוגורט חלבון (גביע)', 130, 20],
-    ['חלב 3% (כוס)', 145, 8], ['חלב 1% (כוס)', 105, 8.5], ['שוקו (כוס)', 180, 8],
-    ['חזה עוף מבושל (100 גרם)', 165, 31], ['שניצל מטוגן (אחד)', 300, 22], ['טונה במים (קופסה)', 120, 26],
-    ['טונה בשמן (קופסה, מסוננת)', 190, 25], ['קציצת המבורגר (בלי לחמנייה)', 280, 25], ['נקניקייה', 120, 6],
-    ['אורז מבושל (כוס)', 200, 4], ['פסטה מבושלת (כוס)', 220, 8], ['פתיתים מבושלים (כוס)', 220, 7],
-    ['תפוח אדמה (בינוני)', 150, 4], ["צ'יפס (מנה בינונית)", 350, 4], ['חומוס (3 כפות)', 120, 4], ['טחינה (כף)', 90, 2.5],
-    ['סלט ירקות (קערה, בלי שמן)', 40, 1.5], ['שמן זית (כף)', 120, 0], ['אבוקדו (רבע)', 80, 1],
-    ['בננה', 105, 1], ['תפוח', 95, 0.5], ['תפוז', 70, 1], ['ענבים (כוס)', 100, 1], ['תמר', 65, 0.5],
-    ['שקדים (חופן)', 145, 5], ['חמאת בוטנים (כף)', 95, 4], ['שיבולת שועל (חצי כוס)', 150, 5], ['דגני בוקר (כוס)', 115, 2],
-    ['פריכיית אורז', 35, 0.7], ['חטיף חלבון', 200, 20], ['במבה (שקית קטנה)', 135, 4], ['ביסלי (שקית קטנה)', 170, 3],
-    ['שוקולד (שורה)', 110, 1.5], ['עוגייה', 80, 1], ['גלידה (כדור)', 140, 2.5], ['פיצה (משולש)', 280, 12],
-    ['פלאפל בפיתה', 600, 18], ['שווארמה בפיתה', 700, 38], ['המבורגר בלחמנייה', 500, 28], ['סושי (רול, 8 יחידות)', 320, 10],
-    ['קולה (פחית)', 140, 0], ['מיץ תפוזים (כוס)', 110, 2]
+  // Single foods for the diary, by group: [name, calories, protein, extra search words]. Numbers are estimates for the portion in the name.
+  var FOOD_GROUPS = [
+    ['veg', 'ירקות', [
+      ['בטטה (בינונית, אפויה או מבושלת)', 135, 3, 'תפוח אדמה מתוק'],
+      ['בטטה בתנור עם שמן (מנה, 150 גרם)', 175, 3, 'צלויה'],
+      ["צ'יפס בטטה (מנה)", 250, 2.5, 'מטוגנת'],
+      ['תפוח אדמה (בינוני, מבושל או אפוי)', 150, 4, 'תפוד תפודים'],
+      ['תפוחי אדמה בתנור עם שמן (מנה)', 260, 4, 'תפוד צלויים'],
+      ['פירה (כוס)', 220, 4, 'תפוד מחית'],
+      ["צ'יפס (מנה בינונית)", 350, 4, 'תפוד צ׳יפס פרנץ׳ פרייז'],
+      ['מלפפון', 15, 0.5, ''],
+      ['עגבנייה', 20, 1, ''],
+      ['עגבניות שרי (כוס)', 25, 1, ''],
+      ['פלפל', 30, 1, 'גמבה'],
+      ['גזר', 25, 0.5, ''],
+      ['חסה (2 כוסות)', 10, 1, 'עלים'],
+      ['כרוב (כוס, חתוך)', 20, 1, ''],
+      ['ברוקולי (כוס, מבושל)', 55, 4, ''],
+      ['כרובית (כוס, מבושלת)', 30, 2, ''],
+      ['כרובית מטוגנת (כוס)', 180, 3, 'בציפוי'],
+      ['קישוא (מבושל)', 35, 2.5, 'זוקיני'],
+      ['חציל קלוי (חצי)', 80, 2, ''],
+      ['חציל מטוגן (3 פרוסות)', 200, 1.5, ''],
+      ['תירס (קלח)', 90, 3, ''],
+      ['תירס מקופסה (חצי כוס)', 70, 2, ''],
+      ['אפונה (חצי כוס)', 60, 4, 'אפונת גינה'],
+      ['שעועית ירוקה (כוס)', 35, 2, ''],
+      ['פטריות (כוס, מבושלות)', 40, 3, ''],
+      ['בצל', 45, 1, ''],
+      ['סלק (מבושל)', 45, 2, ''],
+      ['דלעת (כוס, מבושלת)', 50, 2, ''],
+      ['תרד (כוס, מבושל)', 40, 5, ''],
+      ['אבוקדו (חצי)', 160, 2, ''],
+      ['אבוקדו (רבע)', 80, 1, ''],
+      ['סלט ירקות (קערה, בלי שמן)', 40, 1.5, 'סלט קצוץ ישראלי'],
+      ['סלט ירקות עם שמן (קערה)', 160, 1.5, 'סלט קצוץ ישראלי'],
+      ['ירקות מוקפצים (כוס)', 80, 3, 'ווק'],
+      ['זיתים (10)', 50, 0, ''],
+      ['מלפפון חמוץ', 10, 0.5, 'חמוצים']
+    ]],
+    ['fruit', 'פירות', [
+      ['בננה', 105, 1, ''], ['תפוח', 95, 0.5, 'תפוח עץ'], ['אגס', 100, 0.5, ''], ['תפוז', 70, 1, ''],
+      ['קלמנטינה', 35, 0.5, 'מנדרינה'], ['אשכולית (חצי)', 50, 1, ''], ['ענבים (כוס)', 105, 1, ''],
+      ['אבטיח (פלח גדול)', 90, 2, ''], ['מלון (פלח)', 70, 1.5, ''], ['תותים (כוס)', 50, 1, 'תות'],
+      ['אוכמניות (כוס)', 85, 1, ''], ['אננס (כוס)', 80, 1, ''], ['מנגו (חצי)', 100, 1.5, ''], ['קיווי', 45, 1, ''],
+      ['אפרסק', 60, 1.5, ''], ['נקטרינה', 60, 1.5, ''], ['שזיף', 30, 0.5, ''], ['משמש', 15, 0.5, ''],
+      ['רימון (חצי כוס גרגרים)', 70, 1.5, ''], ['תאנה', 35, 0.5, ''], ['דובדבנים (כוס)', 90, 1.5, ''],
+      ['אפרסמון', 120, 1, ''], ['תמר', 65, 0.5, 'תמרים'], ['פירות יבשים (חופן)', 90, 1, 'משמש מיובש צימוקים'],
+      ['צימוקים (קופסה קטנה)', 120, 1, ''], ['סלט פירות (כוס)', 100, 1, '']
+    ]],
+    ['bread', 'לחם ומאפים', [
+      ['פרוסת לחם', 75, 3.5, 'לחם מלא אחיד'], ['פרוסת לחם קל', 45, 3, 'לחם דיאט'], ['פרוסת חלה', 110, 3.5, ''],
+      ['פיתה', 220, 7, ''], ['לאפה', 330, 10, ''], ['לחמנייה', 180, 6, ''], ['באגט (חצי)', 340, 11, 'בגט'],
+      ['טורטייה', 120, 3.5, 'טורטיה'], ['בייגל (לחמניית בייגל)', 260, 10, ''], ['בייגלה ירושלמי', 320, 10, 'כעך'],
+      ['קרואסון', 230, 5, ''], ['בורקס גבינה (אחד)', 300, 8, ''], ['בורקס תפוח אדמה (אחד)', 280, 5, ''],
+      ['מלאווח (אחד)', 400, 7, ''], ["ג'חנון (אחד)", 400, 7, ''], ['פריכיית אורז', 35, 0.7, 'פריכיות'],
+      ['פריכיית תירס', 25, 0.5, 'פריכיות'], ['קרקרים (5)', 100, 2, 'קרקר'], ['טוסט (2 פרוסות לחם)', 150, 7, '']
+    ]],
+    ['grain', 'אורז, פסטה ודגנים', [
+      ['אורז לבן מבושל (כוס)', 200, 4, ''], ['אורז מלא מבושל (כוס)', 215, 5, ''], ['פסטה מבושלת (כוס)', 220, 8, 'ספגטי מקרוני'],
+      ['פסטה מלאה מבושלת (כוס)', 175, 7.5, ''], ['פתיתים מבושלים (כוס)', 220, 7, ''], ['קוסקוס מבושל (כוס)', 175, 6, ''],
+      ['בורגול מבושל (כוס)', 150, 5.5, ''], ['קינואה מבושלת (כוס)', 220, 8, 'קינואה'], ['כוסמת מבושלת (כוס)', 155, 5.5, ''],
+      ['נודלס מבושלות (כוס)', 220, 7, 'אטריות'], ['אטריות אורז (כוס)', 190, 3, ''], ['שיבולת שועל (חצי כוס)', 150, 5, 'קוואקר דייסה'],
+      ['דגני בוקר (כוס)', 115, 2, 'קורנפלקס'], ['גרנולה (רבע כוס)', 135, 3, '']
+    ]],
+    ['dairy', 'חלב, גבינות וביצים', [
+      ['ביצה', 70, 6, 'ביצה קשה מקושקשת'], ['ביצת עין (מטוגנת)', 90, 6, ''], ['חביתה (2 ביצים)', 200, 12, ''],
+      ['חלבון ביצה', 17, 3.5, ''], ['חלב 3% (כוס)', 145, 8, ''], ['חלב 1% (כוס)', 105, 8.5, ''],
+      ['חלב סויה (כוס)', 100, 7, ''], ['חלב שקדים (כוס)', 35, 1, ''], ['שוקו (כוס)', 180, 8, 'שקית'],
+      ['יוגורט 3% (גביע)', 125, 8, ''], ['יוגורט עם פרי (גביע)', 150, 5, ''], ['יוגורט יווני (גביע)', 110, 13, ''],
+      ['יוגורט חלבון (גביע)', 130, 20, 'פרו'], ['מעדן חלבון (גביע)', 140, 15, ''], ['מילקי (גביע)', 190, 4, ''],
+      ['דני (גביע)', 130, 3, ''], ['לבן או אשל (גביע)', 110, 7, ''], ["קוטג' (חצי גביע)", 120, 14, 'קוטג׳'],
+      ["קוטג' (גביע שלם)", 240, 28, 'קוטג׳'], ["קוטג' (2 כפות)", 50, 6, 'קוטג׳'], ['גבינה לבנה 5% (3 כפות)', 55, 5, ''],
+      ['גבינה לבנה 5% (חצי גביע)', 120, 11, ''], ['גבינה צהובה (פרוסה)', 70, 5, 'עמק'], ['גבינה צהובה 9% (פרוסה)', 50, 6.5, 'עמק'],
+      ['גבינת שמנת (כף)', 45, 1, ''], ['גבינה בולגרית (30 גרם)', 80, 5, 'פטה מלוחה'], ['מוצרלה (30 גרם)', 85, 6.5, ''],
+      ['פרמזן מגורר (כף)', 20, 2, ''], ['לבנה (2 כפות)', 60, 3, ''], ['חמאה (כפית)', 35, 0, '']
+    ]],
+    ['meat', 'עוף ובשר', [
+      ['חזה עוף מבושל (100 גרם)', 165, 31, 'עוף'], ['פרגית צלויה (אחת)', 180, 25, 'עוף'], ['שוק עוף (עם עור)', 160, 20, 'עוף כרעיים'],
+      ['כנפיים (3)', 250, 22, 'עוף'], ['שניצל מטוגן (אחד)', 300, 22, 'עוף'], ['שניצל בתנור (אחד)', 220, 26, 'עוף'],
+      ['נאגטס (6)', 280, 14, 'עוף שניצלונים'], ['שווארמה (מנה בצלחת)', 350, 30, 'עוף הודו'], ['כבד עוף (100 גרם)', 170, 24, ''],
+      ['פסטרמה הודו (4 פרוסות)', 55, 9, 'נקניק'], ['נקניק או סלמי (4 פרוסות)', 110, 5, ''], ['נקניקייה', 120, 6, 'נקניקיות'],
+      ['קציצת המבורגר (בלי לחמנייה)', 280, 25, 'בשר בקר'], ['קציצות בשר ברוטב (3)', 300, 22, ''], ['קבב (2)', 320, 20, 'בשר'],
+      ['בשר טחון מבושל (100 גרם)', 250, 26, 'בקר'], ['סטייק אנטריקוט (מנה, 200 גרם)', 560, 48, 'בשר בקר'], ['צלי בקר (100 גרם)', 200, 28, 'בשר']
+    ]],
+    ['fish', 'דגים', [
+      ['טונה במים (קופסה)', 120, 26, ''], ['טונה בשמן (קופסה, מסוננת)', 190, 25, ''], ['סלמון (מנה, 150 גרם)', 310, 33, 'סלומון'],
+      ['דג לבן: אמנון, מושט או דניס (מנה)', 190, 38, 'דג'], ['פילה דג בציפוי מטוגן', 280, 18, 'דג'], ['סרדינים (קופסה)', 190, 22, 'דג'],
+      ['קציצות דגים (2)', 180, 14, 'דג']
+    ]],
+    ['legume', 'קטניות וצמחוני', [
+      ['חומוס (3 כפות)', 120, 4, 'ממרח'], ['גרגרי חומוס מבושלים (חצי כוס)', 135, 7, ''], ['עדשים מבושלות (חצי כוס)', 115, 9, ''],
+      ['מרק עדשים (קערה)', 200, 11, ''], ['שעועית לבנה ברוטב (כוס)', 240, 12, ''], ['שעועית מבושלת (חצי כוס)', 110, 7, ''],
+      ['פול (חצי כוס)', 130, 8, ''], ['אדממה (כוס)', 190, 18, 'סויה'], ['טופו (100 גרם)', 120, 12, 'סויה'],
+      ['פלאפל (כדור)', 55, 2, ''], ["מג'דרה (כוס)", 300, 11, 'אורז עדשים'], ['שניצל תירס (אחד)', 215, 4, 'טבעול'],
+      ['שניצל צמחי (אחד)', 200, 13, 'טבעול סויה']
+    ]],
+    ['nuts', 'אגוזים וזרעים', [
+      ['שקדים (חופן)', 145, 5, ''], ['אגוזי מלך (חופן)', 165, 4, 'אגוזים'], ['קשיו (חופן)', 140, 4.5, 'אגוזים'],
+      ['בוטנים (חופן)', 170, 7, ''], ['פיסטוקים (חופן)', 170, 6, ''], ['גרעינים (חופן)', 150, 6, 'שחורים לבנים'],
+      ['חמאת בוטנים (כף)', 95, 4, ''], ['זרעי צ\'יה (כף)', 60, 2, 'צ׳יה']
+    ]],
+    ['spread', 'ממרחים, רטבים ושמנים', [
+      ['טחינה (כף)', 90, 2.5, ''], ['שמן זית (כף)', 120, 0, ''], ['שמן (כף)', 120, 0, 'קנולה'],
+      ['מיונז (כף)', 95, 0, 'מיונית'], ['מיונז לייט (כף)', 40, 0, ''], ['קטשופ (כף)', 20, 0, ''], ['חרדל (כפית)', 5, 0, ''],
+      ['רוטב עגבניות (חצי כוס)', 50, 2, ''], ['רוטב סויה (כף)', 10, 1, ''], ['רוטב לסלט (כף)', 70, 0, ''],
+      ['ממרח שוקולד (כף)', 100, 1, 'נוטלה'], ['ריבה (כף)', 50, 0, ''], ['דבש (כף)', 60, 0, ''], ['סילאן (כף)', 60, 0, ''],
+      ['סוכר (כפית)', 16, 0, ''], ['מטבוחה (2 כפות)', 40, 1, ''], ['סלט חצילים במיונז (2 כפות)', 100, 1, '']
+    ]],
+    ['ready', 'אוכל מוכן ובחוץ', [
+      ['פיצה (משולש)', 280, 12, ''], ['פלאפל בפיתה', 600, 18, ''], ['שווארמה בפיתה', 700, 38, ''], ['שווארמה בלאפה', 900, 45, ''],
+      ['סביח בפיתה', 650, 18, ''], ['המבורגר בלחמנייה', 500, 28, ''], ['ביג מק', 560, 26, 'מקדונלדס'], ['שניצל בלחמנייה', 480, 26, ''],
+      ['טוסט גבינה (מבית קפה)', 450, 22, ''], ['סושי (רול, 8 יחידות)', 320, 10, ''], ['נודלס מוקפצים עם עוף (מנה)', 650, 32, 'ווק'],
+      ['אורז מוקפץ (מנה)', 550, 15, ''], ['פסטה ברוטב שמנת (מנה)', 800, 24, 'רוזה אלפרדו'], ['פסטה ברוטב עגבניות (מנה)', 550, 17, ''],
+      ['ספגטי בולונז (מנה)', 650, 30, ''], ['לזניה (מנה)', 400, 22, ''], ['קוסקוס עם מרק (קערה)', 450, 18, ''],
+      ['מרק עוף (קערה)', 130, 10, ''], ['מרק עוף עם קניידלך (קערה)', 250, 12, ''], ['מרק ירקות (קערה)', 100, 3, ''],
+      ["חמין (קערה)", 500, 25, "צ'ולנט"], ['שקשוקה (מנה, 2 ביצים)', 300, 14, ''], ['קובה (אחת)', 230, 10, ''],
+      ['ממולא: פלפל או קישוא (אחד)', 200, 10, '']
+    ]],
+    ['sweet', 'חטיפים ומתוקים', [
+      ['במבה (שקית קטנה)', 135, 4, ''], ['במבה (שקית גדולה, 80 גרם)', 430, 13, ''], ['ביסלי (שקית קטנה)', 170, 3, ''],
+      ['ביסלי (שקית 70 גרם)', 340, 6, ''], ["תפוצ'יפס (שקית 50 גרם)", 270, 3, 'צ׳יפס'], ['דוריטוס (שקית 50 גרם)', 255, 3, 'צ׳יטוס'],
+      ['פופקורן (3 כוסות)', 110, 3, ''], ['בייגלה (חופן)', 115, 3, ''], ['שוקולד (שורה)', 110, 1.5, ''],
+      ['שוקולד (טבלה, 100 גרם)', 540, 7, ''], ['חטיף שוקולד (קיט קט, טוויקס)', 250, 3, ''], ['פסק זמן', 245, 3, ''],
+      ['קרמבו', 105, 1, ''], ['חטיף דגנים', 100, 2, ''], ['עוגייה', 80, 1, 'עוגיות'],
+      ['אוראו (3)', 160, 1.5, 'עוגיות'], ['ופלים (3)', 150, 2, 'וופל'], ['עוגה (פרוסה)', 250, 3, ''],
+      ['עוגת גבינה (פרוסה)', 350, 7, ''], ['רוגלך (2)', 200, 3, ''], ['סופגנייה', 400, 6, ''], ['חלבה (30 גרם)', 160, 4, ''],
+      ['סוכריות (חופן)', 100, 0, 'מרשמלו גומי'], ['גלידה (כדור)', 140, 2.5, ''], ['ארטיק שוקולד (מגנום)', 260, 3, ''],
+      ['ארטיק קרח', 70, 0, 'שלגון']
+    ]],
+    ['drink', 'שתייה', [
+      ['קולה (פחית)', 140, 0, 'קוקה'], ['קולה זירו (פחית)', 0, 0, 'דיאט'], ['משקה מוגז מתוק (כוס)', 100, 0, 'ספרייט פאנטה'],
+      ['מיץ תפוזים (כוס)', 110, 2, ''], ['מיץ ענבים או תפוחים (כוס)', 120, 0, ''], ['משקה פירות ממותק (כוס)', 100, 0, 'פריגת'],
+      ['לימונדה (כוס)', 100, 0, ''], ['שייק פירות (כוס)', 180, 2, 'סמותי'], ['קפה עם חלב (כוס)', 60, 3, ''],
+      ['קפה הפוך', 120, 7, 'קפוצ׳ינו'], ['אייס קפה', 180, 5, ''], ['תה עם 2 כפיות סוכר', 32, 0, ''],
+      ['משקה אנרגיה (פחית)', 110, 0, 'רד בול'], ['משקה ספורט (בקבוק)', 130, 0, 'גטורייד']
+    ]],
+    ['protein', 'מוצרי חלבון', [
+      ['אבקת חלבון (סקופ)', 120, 24, 'שייק'], ['משקה חלבון מוכן (בקבוק)', 190, 25, ''], ['חטיף חלבון', 200, 20, '']
+    ]]
   ];
+  var FOODS = [];
+  FOOD_GROUPS.forEach(function (g) { g[2].forEach(function (f) { FOODS.push({ name: f[0], kcal: f[1], p: f[2], kw: f[3] || '', cat: g[0] }); }); });
 
   var ACT = [
     { b: 'כמעט בלי ספורט', s: 'רוב היום בישיבה' },
@@ -423,7 +554,22 @@
   function r5(n) { return Math.round(n / 5) * 5; }
   function r50(n) { return Math.round(n / 50) * 50; }
   function dens(m) { return m.p / m.k * 100; }
-  function norm(s) { return String(s).toLowerCase().replace(/['"`׳״]/g, '').replace(/\s+/g, ' ').trim(); }
+  // search text: no quotes, final letters as regular ones (so "עוף" and "עופות" meet), single spaces
+  var FINALS = { 'ך': 'כ', 'ם': 'מ', 'ן': 'נ', 'ף': 'פ', 'ץ': 'צ' };
+  function norm(s) { return String(s).toLowerCase().replace(/['"`׳״]/g, '').replace(/[ךםןףץ]/g, function (c) { return FINALS[c]; }).replace(/\s+/g, ' ').trim(); }
+  // each typed word must appear; plurals and the feminine ה/ת ending also count ("ביצים" finds "ביצה")
+  function matcher(q) {
+    var words = norm(q).split(' ').filter(Boolean).map(function (w) {
+      var v = [w];
+      if (w.length > 3 && /(ימ|ות)$/.test(w)) v.push(w.slice(0, -2));
+      if (w.length > 2 && /[הת]$/.test(w)) v.push(w.slice(0, -1));
+      return v;
+    });
+    return function (text) {
+      text = norm(text);
+      return words.every(function (v) { return v.some(function (s) { return text.indexOf(s) >= 0; }); });
+    };
+  }
   function qtyLabel(q) { return q === 1 ? '' : q === 0.5 ? 'חצי מנה' : fmt1(q) + ' מנות'; }
   var fmtWeekday, fmtDate, fmtLong;
   try {
@@ -688,7 +834,7 @@
     }).join('') + '</div>';
     if (s.tab === 'other') {
       h += '<form class="mform" data-form="manual">' +
-        '<label class="field" style="margin-top:14px">מה זה?<input class="input" name="name" maxlength="60" autocomplete="off" placeholder="למשל: סנדוויץ\' של סבתא"></label>' +
+        '<label class="field" style="margin-top:14px">מה זה?<input class="input" name="name" maxlength="60" autocomplete="off" placeholder="למשל: סנדוויץ\' של סבתא" value="' + esc(s.prefill || '') + '"></label>' +
         '<div class="grid2"><label class="field">קלוריות<input class="input" name="kcal" type="text" inputmode="numeric" autocomplete="off"></label>' +
         '<label class="field">חלבון (גרם)<input class="input" name="p" type="text" inputmode="decimal" autocomplete="off" placeholder="לא יודעים? 0"></label></div>' +
         '<label class="check"><input type="checkbox" name="keep" checked> לשמור ברשימה לפעם הבאה</label>' +
@@ -696,34 +842,68 @@
         '<button class="btn primary block" type="submit">הוספה ליומן</button>' +
         '<p class="muted small">את המספרים אפשר למצוא על האריזה, בטבלת הסימון התזונתי. אם אין, אפשר לבחור משהו דומה מהרשימה.</p></form>';
     } else {
-      h += '<input class="input search" id="q" type="search" placeholder="חיפוש…" aria-label="חיפוש" autocomplete="off" enterkeyhint="search" value="' + esc(s.q || '') + '">' +
-        '<div class="rows" id="picklist">' + pickList(s) + '</div>';
+      h += '<input class="input search" id="q" type="search" placeholder="' + (s.tab === 'foods' ? 'חיפוש, למשל: בטטה' : 'חיפוש…') + '" aria-label="חיפוש" autocomplete="off" enterkeyhint="search" value="' + esc(s.q || '') + '">';
+      if (s.tab === 'foods') h += '<div class="fchips" id="fchips" role="group" aria-label="קבוצות"' + (s.q ? ' hidden' : '') + '>' +
+        [['all', 'הכול']].concat(FOOD_GROUPS.map(function (g) { return [g[0], g[1]]; })).map(function (c) {
+          return '<button type="button" class="chip" data-act="fcat" data-k="' + c[0] + '" aria-pressed="' + ((s.cat || 'all') === c[0]) + '">' + c[1] + '</button>';
+        }).join('') + '</div>';
+      h += '<div class="rows" id="picklist">' + pickList(s) + '</div>';
     }
     return h;
   }
+  function pickRow(src, i, name, k, p) {
+    return '<button type="button" class="row" data-act="pick" data-src="' + src + '" data-i="' + i + '">' + rowInner(name, k, p) + '</button>';
+  }
+  // Foods tab: with no search, foods by group (one group when a chip is picked); a search looks through everything.
   function pickList(s) {
-    var q = norm(s.q || ''), h = '';
-    function hit(name) { return !q || norm(name).indexOf(q) >= 0; }
-    if (s.tab === 'foods') {
+    var q = (s.q || '').trim(), hit = matcher(q), h = '';
+    if (s.tab === 'meals') {
+      MEALS.forEach(function (m, i) { if (hit(m.n)) h += pickRow('meal', i, m.n, m.k, m.p); });
+    } else {
+      var cat = q ? 'all' : (s.cat || 'all');
       var mine = [];
-      db.mine.forEach(function (f, i) { if (hit(f.name)) mine.push(i); });
+      if (cat === 'all') db.mine.forEach(function (f, i) { if (hit(f.name)) mine.push(i); });
       if (mine.length) h += '<h3 class="listhead">שמרתי</h3>' + mine.map(function (i) {
         var f = db.mine[i];
-        return '<div class="pickrow"><button type="button" class="row" data-act="pick" data-src="mine" data-i="' + i + '">' + rowInner(f.name, f.kcal, f.p) + '</button>' +
+        return '<div class="pickrow">' + pickRow('mine', i, f.name, f.kcal, f.p) +
           '<button type="button" class="iconbtn sm" data-act="delmine" data-i="' + i + '" aria-label="להסיר מהרשימה: ' + esc(f.name) + '">' + I.x + '</button></div>';
       }).join('');
-      var foods = [];
-      FOODS.forEach(function (f, i) { if (hit(f[0])) foods.push(i); });
-      if (foods.length && mine.length) h += '<h3 class="listhead">מאכלים</h3>';
-      h += foods.map(function (i) { var f = FOODS[i]; return '<button type="button" class="row" data-act="pick" data-src="food" data-i="' + i + '">' + rowInner(f[0], f[1], f[2]) + '</button>'; }).join('');
-    } else {
-      MEALS.forEach(function (m, i) { if (hit(m.n)) h += '<button type="button" class="row" data-act="pick" data-src="meal" data-i="' + i + '">' + rowInner(m.n, m.k, m.p) + '</button>'; });
+      if (q) {
+        // closest names first: the name is the searched word, then starts with it, then has it as a whole word, then a word starting with it
+        var first = norm(q).split(' ')[0], vs = [first];
+        if (first.length > 3 && /(ימ|ות)$/.test(first)) vs.push(first.slice(0, -2));
+        if (first.length > 2 && /[הת]$/.test(first)) vs.push(first.slice(0, -1));
+        var found = [];
+        FOODS.forEach(function (f, i) {
+          if (!hit(f.name + ' ' + f.kw)) return;
+          var n = norm(f.name).replace(/[(),:%0-9]/g, ' ').replace(/\s+/g, ' ').trim(), sp = ' ' + n + ' ', score = 4;
+          vs.forEach(function (v) {
+            score = Math.min(score, n.indexOf(v + ' ') === 0 || n === v ? 0 : n.indexOf(v) === 0 ? 1 : sp.indexOf(' ' + v + ' ') >= 0 ? 2 : sp.indexOf(' ' + v) >= 0 ? 3 : 4);
+          });
+          found.push({ i: i, s: score });
+        });
+        found.sort(function (a, b) { return a.s - b.s || a.i - b.i; });
+        if (found.length) h += '<h3 class="listhead">מאכלים</h3>' + found.map(function (x) { var f = FOODS[x.i]; return pickRow('food', x.i, f.name, f.kcal, f.p); }).join('');
+      } else FOOD_GROUPS.forEach(function (g) {
+        if (cat !== 'all' && cat !== g[0]) return;
+        var rows = '';
+        FOODS.forEach(function (f, i) { if (f.cat === g[0]) rows += pickRow('food', i, f.name, f.kcal, f.p); });
+        if (rows) h += '<h3 class="listhead">' + g[1] + '</h3>' + rows;
+      });
+      if (q) {
+        var meals = '';
+        MEALS.forEach(function (m, i) { if (hit(m.n)) meals += pickRow('meal', i, m.n, m.k, m.p); });
+        if (meals) h += '<h3 class="listhead">ארוחות</h3>' + meals;
+      }
     }
-    return h || '<p class="empty">לא מצאתי. אפשר להוסיף ב"משהו אחר".</p>';
+    if (!h) h = '<div class="empty"><p>' + (q ? 'לא מצאתי "' + esc(q) + '".' : 'אין כאן כלום.') + '</p>' +
+      '<button type="button" class="btn block mt" data-act="addother">' + (q ? 'להוסיף "' + esc(q) + '" בעצמי' : 'להוסיף משהו בעצמי') + '</button></div>';
+    else if (q) h += '<button type="button" class="btn ghost block" data-act="addother">לא מה שחיפשת? להוסיף "' + esc(q) + '" בעצמי</button>';
+    return h;
   }
   function pickItem(src, i) {
     if (src === 'mine') { var f = db.mine[i]; return f && { name: f.name, kcal: f.kcal, p: f.p }; }
-    if (src === 'food') { var x = FOODS[i]; return x && { name: x[0], kcal: x[1], p: x[2] }; }
+    if (src === 'food') { var x = FOODS[i]; return x && { name: x.name, kcal: x.kcal, p: x.p }; }
     var m = MEALS[i]; return m && { name: m.n, kcal: m.k, p: m.p };
   }
 
@@ -829,7 +1009,12 @@
       }
       case 'gotoday': ui.day = todayISO(); ui.followToday = true; render(); break;
       case 'add': openSheet({ type: 'add', tab: ui.addTab, q: '', day: ui.day }); break;
-      case 'addtab': s.tab = ui.addTab = el.dataset.k; s.q = ''; renderSheet(); break;
+      case 'addtab': s.tab = ui.addTab = el.dataset.k; s.q = ''; s.prefill = ''; renderSheet(); break;
+      case 'fcat':
+        s.cat = el.dataset.k; refreshPick();
+        Array.prototype.forEach.call(document.querySelectorAll('#fchips .chip'), function (b) { b.setAttribute('aria-pressed', String(b === el)); });
+        break;
+      case 'addother': s.prefill = (s.q || '').trim(); s.tab = 'other'; s.q = ''; renderSheet(); break;
       case 'pick': {
         var it = pickItem(el.dataset.src, +el.dataset.i);
         if (it) openSheet({ type: 'qty', item: it, qty: 1, day: s.day, back: s });
@@ -870,7 +1055,10 @@
   function refreshPick() { var pl = document.getElementById('picklist'); if (pl && ui.sheet) pl.innerHTML = pickList(ui.sheet); }
 
   document.addEventListener('input', function (e) {
-    if (e.target.id === 'q' && ui.sheet && ui.sheet.type === 'add') { ui.sheet.q = e.target.value; refreshPick(); }
+    if (e.target.id === 'q' && ui.sheet && ui.sheet.type === 'add') {
+      ui.sheet.q = e.target.value; refreshPick();
+      var fc = document.getElementById('fchips'); if (fc) fc.hidden = !!e.target.value.trim();
+    }
   });
 
   document.addEventListener('change', function (e) {
